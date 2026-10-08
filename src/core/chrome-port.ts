@@ -69,12 +69,17 @@ export function confirmedBrokenPinnedPlaceholderIds(
 }
 
 export function installGuardInPage(siteKey: string, favoriteHosts: string[], sameSiteInNewTab = false): void {
-  const marker = "__arcFavoritesLinkGuard_v1";
+  // Bump the marker whenever the listener logic changes: an extension update
+  // keeps the page's isolated world, so an older guard would otherwise keep
+  // running and the new one would never be installed.
+  const marker = "__arcFavoritesLinkGuard_v2";
   const pageWindow = window as typeof window & {
     [key: string]:
       | { siteKey: string; favoriteHosts: string[]; enabled: boolean; sameSiteInNewTab?: boolean }
       | undefined;
   };
+  const legacy = pageWindow["__arcFavoritesLinkGuard_v1"];
+  if (legacy) legacy.enabled = false;
   const existing = pageWindow[marker];
   if (existing) {
     existing.siteKey = siteKey;
@@ -92,7 +97,9 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[], sam
     `${url.hostname.replace(/^www\./i, "")}${url.port ? `:${url.port}` : ""}`;
   const pageIdentity = identityOf(new URL(location.href));
 
-  document.addEventListener(
+  // Window capture runs before any listener a page registers on document, so
+  // single-page apps cannot turn the click into an in-place navigation first.
+  window.addEventListener(
     "click",
     (event) => {
       if (
@@ -109,10 +116,16 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[], sam
 
       const target = event.target;
       if (!(target instanceof Element)) return;
+      const path = event.composedPath();
+      // YouTube's hover preview plays in an overlay outside the thumbnail link;
+      // the link it stands for lives inside that overlay.
+      const preview = path.find((node): node is Element =>
+        node instanceof Element && node.matches("ytd-video-preview, #video-preview"));
       const anchor =
-        event.composedPath().find((node): node is HTMLAnchorElement =>
+        path.find((node): node is HTMLAnchorElement =>
           node instanceof HTMLAnchorElement && node.hasAttribute("href"),
-        ) ?? target.closest<HTMLAnchorElement>("a[href]");
+        ) ?? target.closest<HTMLAnchorElement>("a[href]")
+        ?? preview?.querySelector<HTMLAnchorElement>('a[href*="/watch"], a[href*="/shorts/"]') ?? null;
       if (!anchor || anchor.hasAttribute("download")) return;
 
       let destination: URL;
@@ -281,12 +294,13 @@ export function showSwitchHintInPage(): void {
 }
 
 function disableLinkGuardInPage(): void {
-  const marker = "__arcFavoritesLinkGuard_v1";
   const pageWindow = window as typeof window & {
     [key: string]: { siteKey: string; enabled: boolean } | undefined;
   };
-  const existing = pageWindow[marker];
-  if (existing) existing.enabled = false;
+  for (const marker of ["__arcFavoritesLinkGuard_v1", "__arcFavoritesLinkGuard_v2"]) {
+    const existing = pageWindow[marker];
+    if (existing) existing.enabled = false;
+  }
 }
 
 export function readAppNameInPage(): string | undefined {
@@ -304,6 +318,7 @@ export function readAppNameInPage(): string | undefined {
 
 export class ChromeBrowserPort implements BrowserPort {
   private badgeTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly loggedGuards = new Set<string>();
 
   constructor(private readonly log: Logger = () => undefined) {}
 
@@ -522,8 +537,14 @@ export class ChromeBrowserPort implements BrowserPort {
         func: installGuardInPage,
         args: [siteKey, favoriteHosts, sameSiteInNewTab],
       });
-    } catch {
+      const key = `${tabId}:${siteKey}:${sameSiteInNewTab}`;
+      if (!this.loggedGuards.has(key)) {
+        this.loggedGuards.add(key);
+        this.log("guard-installed", { tabId, siteKey, sameSiteInNewTab });
+      }
+    } catch (error) {
       // Restricted pages and pages that are still navigating cannot be injected.
+      this.log("guard-failed", { tabId, siteKey, error: String(error) });
     }
   }
 

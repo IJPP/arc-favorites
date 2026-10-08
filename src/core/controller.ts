@@ -1077,6 +1077,8 @@ export class FavoriteController {
     const siteKey = isSupportedPage(currentUrl) ? siteKeyForUrl(currentUrl) : favorite.siteKey;
     if (await this.browser.hasSiteAccess(siteKey)) {
       await this.browser.installLinkGuard(tabId, siteKey, favoriteHosts, Boolean(favorite.sameSiteInNewTab));
+    } else {
+      this.log("guard-no-site-access", { favoriteId: favorite.id, siteKey });
     }
   }
 }

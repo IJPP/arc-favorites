@@ -202,7 +202,11 @@ describe("isBrokenPinnedPlaceholder", () => {
   });
 });
 
-class FakeElement {}
+class FakeElement {
+  matches(): boolean {
+    return false;
+  }
+}
 
 class FakeAnchor extends FakeElement {
   readonly download = "";
@@ -221,28 +225,26 @@ class FakeAnchor extends FakeElement {
 }
 
 function runGuardClick(
-  anchor: FakeAnchor,
+  anchor: FakeAnchor | FakeElement,
   sendMessage: ReturnType<typeof vi.fn>,
   favoriteHosts: string[] = [],
   sameSiteInNewTab = false,
 ): { assign: ReturnType<typeof vi.fn>; preventDefault: ReturnType<typeof vi.fn> } {
   let clickListener: ((event: MouseEvent) => void) | undefined;
   const assign = vi.fn();
-  vi.stubGlobal("window", {});
-  vi.stubGlobal("Element", FakeElement);
-  vi.stubGlobal("HTMLAnchorElement", FakeAnchor);
-  vi.stubGlobal("location", { href: "https://app.example.com/", assign });
-  vi.stubGlobal("chrome", { runtime: { sendMessage } });
-  vi.stubGlobal("document", {
-    addEventListener: (
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-    ) => {
+  vi.stubGlobal("window", {
+    addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
       if (type === "click" && typeof listener === "function") {
         clickListener = listener as (event: MouseEvent) => void;
       }
     },
   });
+  vi.stubGlobal("Element", FakeElement);
+  vi.stubGlobal("HTMLAnchorElement", FakeAnchor);
+  vi.stubGlobal("location", { href: "https://app.example.com/", assign });
+  vi.stubGlobal("chrome", { runtime: { sendMessage } });
+  // Listening on document would let a page's own document listeners run first.
+  vi.stubGlobal("document", {});
 
   installGuardInPage("example.com", favoriteHosts, sameSiteInNewTab);
   const preventDefault = vi.fn();
@@ -254,14 +256,46 @@ function runGuardClick(
     shiftKey: false,
     altKey: false,
     target: anchor,
-    composedPath: () => [anchor],
+    composedPath: () => (anchor instanceof FakePreviewChild ? [anchor, anchor.preview] : [anchor]),
     preventDefault,
     stopImmediatePropagation: vi.fn(),
   } as unknown as MouseEvent);
   return { assign, preventDefault };
 }
 
+class FakePreview extends FakeElement {
+  constructor(readonly link: FakeAnchor) { super(); }
+  override matches(): boolean { return true; }
+  querySelector(): FakeAnchor { return this.link; }
+}
+
+class FakePreviewChild extends FakeElement {
+  constructor(readonly preview: FakePreview) { super(); }
+  closest(): null { return null; }
+}
+
 describe("link guard in app-home mode", () => {
+  it("finds the video behind YouTube's hover preview overlay", () => {
+    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "opened" });
+    const preview = new FakePreview(new FakeAnchor("https://app.example.com/watch?v=7", "", new Set()));
+
+    const { preventDefault } = runGuardClick(new FakePreviewChild(preview), sendMessage, [], true);
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ url: "https://app.example.com/watch?v=7", sameSite: true }));
+  });
+
+  it("retires a guard left by an older version instead of keeping it", () => {
+    const legacy = { siteKey: "example.com", favoriteHosts: [], enabled: true };
+    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "opened" });
+    vi.stubGlobal("window", { __arcFavoritesLinkGuard_v1: legacy, addEventListener: vi.fn() });
+    vi.stubGlobal("location", { href: "https://app.example.com/" });
+    installGuardInPage("example.com", [], true);
+    expect(legacy.enabled).toBe(false);
+    expect((window as unknown as { addEventListener: ReturnType<typeof vi.fn> }).addEventListener).toHaveBeenCalledWith("click", expect.any(Function), true);
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("opens a same-site page in a new tab before the site can navigate in place", async () => {
     const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "opened" });
     const anchor = new FakeAnchor("https://app.example.com/watch?v=42", "", new Set());
