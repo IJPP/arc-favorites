@@ -570,3 +570,13 @@ describe('native tab ordering', () => {
     expect(query).toHaveBeenCalledWith({ active: true, lastFocusedWindow: true, windowType: 'normal' });
   });
 });
+
+describe("link guard within the site", () => {
+  it("lets a same-site target=_blank link open its own tab", () => {
+    const sendMessage = vi.fn();
+    const { assign, preventDefault } = runGuardClick(new FakeAnchor("https://app.example.com/video/1", "_blank", new Set()), sendMessage);
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+});

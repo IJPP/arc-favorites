@@ -202,14 +202,9 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[], sam
         }
         return;
       }
-      if (isSameSite) {
-        if (opensNewTab) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          location.assign(destination.toString());
-        }
-        return;
-      }
+      // Within the site, the site decides: a plain link stays here and a
+      // target=_blank link (bilibili videos) keeps opening its own tab.
+      if (isSameSite) return;
 
       // A cross-site _blank link is already an ordinary Chrome tab, which is
       // exactly the desired result and does not need extension handling.
