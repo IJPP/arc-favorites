@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createFavorite, reorderFavorites, updateFavorite } from "../src/core/domain";
 import { MAX_FAVORITES, type Favorite } from "../src/core/types";
-import { favoriteIdentityForUrl, permissionPatternForSite } from "../src/core/url";
+import { favoriteIdentityForUrl, permissionPatternsForSite } from "../src/core/url";
 
 function favorite(id: string, order: number): Favorite {
   return {
@@ -67,11 +67,12 @@ describe("Favorite domain", () => {
     expect(result.siteKey).toBe("example.org");
   });
 
-  it("uses exact optional-permission patterns for local and IP hosts", () => {
-    expect(permissionPatternForSite("example.com")).toBe("*://*.example.com/*");
-    expect(permissionPatternForSite("localhost")).toBe("*://localhost/*");
-    expect(permissionPatternForSite("127.0.0.1")).toBe("*://127.0.0.1/*");
-    expect(permissionPatternForSite("::1")).toBe("*://[::1]/*");
+  it("checks host access per scheme, never with a wildcard scheme", () => {
+    // `*://` is wider than the manifest's http/https grants in current Chrome.
+    expect(permissionPatternsForSite("example.com")).toEqual(["http://*.example.com/*", "https://*.example.com/*"]);
+    expect(permissionPatternsForSite("localhost")).toEqual(["http://localhost/*", "https://localhost/*"]);
+    expect(permissionPatternsForSite("127.0.0.1")).toEqual(["http://127.0.0.1/*", "https://127.0.0.1/*"]);
+    expect(permissionPatternsForSite("::1")).toEqual(["http://[::1]/*", "https://[::1]/*"]);
   });
 
   it("refuses a second Favorite for the same site", () => {

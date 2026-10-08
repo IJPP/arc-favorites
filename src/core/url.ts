@@ -51,13 +51,18 @@ export function opensSameSiteInNewTabByDefault(url: string): boolean {
   }
 }
 
-export function permissionPatternForSite(siteKey: string): string {
+/**
+ * Host patterns that cover a site, one per scheme. A `*://` scheme is not
+ * used: current Chrome treats it as wider than the manifest's `http://*\/*` +
+ * `https://*\/*`, so `permissions.contains` reports false even with full
+ * access and `permissions.request` rejects it as undeclared.
+ */
+export function permissionPatternsForSite(siteKey: string): string[] {
   const isIpAddress = /^[\d.]+$/.test(siteKey) || siteKey.includes(":");
-  if (siteKey === "localhost" || isIpAddress) {
-    const host = siteKey.includes(":") && !siteKey.startsWith("[") ? `[${siteKey}]` : siteKey;
-    return `*://${host}/*`;
-  }
-  return `*://*.${siteKey}/*`;
+  const host = siteKey === "localhost" || isIpAddress
+    ? (siteKey.includes(":") && !siteKey.startsWith("[") ? `[${siteKey}]` : siteKey)
+    : `*.${siteKey}`;
+  return [`http://${host}/*`, `https://${host}/*`];
 }
 
 export function isSupportedPage(value?: string): value is string {

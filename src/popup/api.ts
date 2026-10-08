@@ -11,7 +11,7 @@ import type {
   MessageResponse,
   UpdateFavoriteInput,
 } from "../core/types";
-import { opensSameSiteInNewTabByDefault, permissionPatternForSite, siteKeyForUrl } from "../core/url";
+import { opensSameSiteInNewTabByDefault, permissionPatternsForSite, siteKeyForUrl } from "../core/url";
 
 const hasExtensionRuntime = Boolean(globalThis.chrome?.runtime?.id);
 
@@ -186,7 +186,7 @@ export const favoriteApi = {
 
   async hasSiteAccess(siteKey: string): Promise<boolean> {
     if (!hasExtensionRuntime) return true;
-    return chrome.permissions.contains({ origins: [permissionPatternForSite(siteKey)] });
+    return chrome.permissions.contains({ origins: permissionPatternsForSite(siteKey) });
   },
 
   /** Sites (registrable domains) that Chrome currently withholds from the extension. */
@@ -206,7 +206,7 @@ export const favoriteApi = {
    */
   async requestSiteAccess(siteKeys: string[]): Promise<{ granted: boolean; error?: string }> {
     if (!hasExtensionRuntime || siteKeys.length === 0) return { granted: true };
-    const origins = siteKeys.map(permissionPatternForSite);
+    const origins = siteKeys.flatMap(permissionPatternsForSite);
     try {
       const granted = await chrome.permissions.request({ origins });
       appendLog("site-access-request", { origins, granted });

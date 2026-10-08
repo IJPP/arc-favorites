@@ -1,6 +1,6 @@
 import { cleanDeclaredName } from "./names";
 import type { BrowserPort, BrowserTab, Logger } from "./types";
-import { isSupportedPage, permissionPatternForSite } from "./url";
+import { isSupportedPage, permissionPatternsForSite } from "./url";
 
 const COMMIT_POLL_MS = 150;
 const COMMIT_TIMEOUT_MS = 6_000;
@@ -595,7 +595,7 @@ export class ChromeBrowserPort implements BrowserPort {
 
   async hasSiteAccess(siteKey: string): Promise<boolean> {
     return chrome.permissions.contains({
-      origins: [permissionPatternForSite(siteKey)],
+      origins: permissionPatternsForSite(siteKey),
     });
   }
 }
