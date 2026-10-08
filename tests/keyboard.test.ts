@@ -1,29 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { verticalListStep } from "../src/sidepanel/keyboard";
+import { gridLayout, moveSelection, shiftId } from "../src/popup/layout";
 
-describe("vertical list keyboard navigation", () => {
-  it("moves exactly one tile per arrow key", () => {
-    expect(verticalListStep("ArrowDown")).toBe(1);
-    expect(verticalListStep("ArrowUp")).toBe(-1);
-    expect(verticalListStep("ArrowRight")).toBe(1);
-    expect(verticalListStep("ArrowLeft")).toBe(-1);
-  });
-
-  it("ignores unrelated keys", () => {
-    expect(verticalListStep("Enter")).toBe(0);
-    expect(verticalListStep("Tab")).toBe(0);
+describe("adaptive grid", () => {
+  it("uses big tiles for a few apps and four compact columns for many", () => {
+    expect(gridLayout(0)).toEqual({ cols: 1, size: "xl" });
+    expect(gridLayout(2)).toEqual({ cols: 2, size: "xl" });
+    expect(gridLayout(4)).toEqual({ cols: 2, size: "m" });
+    expect(gridLayout(6)).toEqual({ cols: 3, size: "l" });
+    expect(gridLayout(9)).toEqual({ cols: 3, size: "m" });
+    expect(gridLayout(12)).toEqual({ cols: 4, size: "s" });
   });
 });
 
-import { tileFocusIndex } from '../src/sidepanel/keyboard';
+describe("grid keyboard navigation", () => {
+  const all = [0, 1, 2, 3, 4];
+  it("moves by one and by a row, reaching the last incomplete row", () => {
+    expect(moveSelection("ArrowDown", -1, all, 3)).toBe(0);
+    expect(moveSelection("ArrowRight", 0, all, 3)).toBe(1);
+    expect(moveSelection("ArrowDown", 0, all, 3)).toBe(3);
+    expect(moveSelection("ArrowDown", 2, all, 3)).toBe(4);
+    expect(moveSelection("ArrowUp", 4, all, 3)).toBe(1);
+    expect(moveSelection("ArrowLeft", 0, all, 3)).toBe(0);
+    expect(moveSelection("End", 0, all, 3)).toBe(4);
+    expect(moveSelection("Home", 4, all, 3)).toBe(0);
+  });
 
-describe('grid keyboard navigation', () => {
-  it('moves vertically by a row and reaches the last incomplete row', () => {
-    expect(tileFocusIndex('ArrowDown', 0, 5, 4)).toBe(4);
-    expect(tileFocusIndex('ArrowDown', 2, 5, 4)).toBe(4);
-    expect(tileFocusIndex('ArrowUp', 4, 5, 4)).toBe(0);
-    expect(tileFocusIndex('ArrowLeft', 0, 5, 4)).toBe(0);
-    expect(tileFocusIndex('Home', 4, 5, 4)).toBe(0);
-    expect(tileFocusIndex('End', 0, 5, 4)).toBe(4);
+  it("skips tiles hidden by the filter", () => {
+    expect(moveSelection("ArrowRight", 0, [0, 2, 4], 3)).toBe(2);
+    expect(moveSelection("ArrowDown", 0, [0, 4], 3)).toBe(4);
+    expect(moveSelection("ArrowDown", 4, [0, 4], 3)).toBe(4);
+    expect(moveSelection("ArrowDown", 0, [], 3)).toBe(-1);
+  });
+});
+
+describe("keyboard reordering", () => {
+  it("moves one id and clamps at the ends", () => {
+    expect(shiftId(["a", "b", "c"], "a", 1)).toEqual(["b", "a", "c"]);
+    expect(shiftId(["a", "b", "c"], "c", 3)).toEqual(["a", "b", "c"]);
+    expect(shiftId(["a", "b", "c", "d"], "d", -3)).toEqual(["d", "a", "b", "c"]);
   });
 });

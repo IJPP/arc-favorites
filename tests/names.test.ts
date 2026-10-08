@@ -11,6 +11,8 @@ describe("appNameFromTitle", () => {
     ["X-Men", "https://example.com/", "X-Men"],
     ["Pull requests · octo/repo · GitHub", "https://github.com/pulls", "GitHub"],
     ["", "https://linear.app/", "Linear"],
+    ["少数派 - 高效工作，品质生活", "https://sspai.com/", "少数派"],
+    ["How we build things - Medium", "https://medium.com/x", "Medium"],
   ])("%s → %s", (title, url, expected) => {
     expect(appNameFromTitle(title, url)).toBe(expected);
   });

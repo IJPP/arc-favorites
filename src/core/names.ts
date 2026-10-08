@@ -52,9 +52,15 @@ export function appNameFromTitle(title: string | undefined, url: string): string
     : undefined;
   if (matching) return matching.slice(0, MAX_NAME_LENGTH);
 
+  const usable = (part: string) => part.length <= 16 && !part.includes("@");
+  // "少数派 - 高效工作，品质生活", "Article title - Medium": of two parts the
+  // name is the short one; the other is a tagline or a page title.
+  if (parts.length === 2) {
+    const shorter = [...parts].sort((a, b) => a.length - b.length)[0]!;
+    if (usable(shorter)) return shorter;
+  }
   const last = parts[parts.length - 1]!;
   const first = parts[0]!;
-  const usable = (part: string) => part.length <= 16 && !part.includes("@");
   if (usable(last)) return last;
   if (usable(first)) return first;
   return capitalize(label);

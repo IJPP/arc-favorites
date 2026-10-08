@@ -3,7 +3,7 @@
   "name": "Favorites — Arc-style app tabs",
   "short_name": "Favorites",
   "description": "让 Chrome 原生固定标签成为可跨重启恢复的 Arc 风格 Favorites。",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "minimum_chrome_version": "116",
   "permissions": [
     "tabs",

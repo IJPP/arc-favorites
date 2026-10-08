@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { favoriteState, snapshotKey } from '../src/sidepanel/view';
+import { favoriteState, snapshotKey } from '../src/popup/view';
 import type { FavoriteView } from '../src/core/types';
 
 const favorite: FavoriteView = {
