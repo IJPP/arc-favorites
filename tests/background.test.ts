@@ -14,6 +14,7 @@ function browserMock(sessionReady: boolean) {
     contextMenus: { removeAll: vi.fn(), create: vi.fn(), onClicked: event() },
     tabs: { onUpdated: event(), onCreated: event(), onRemoved: event(), onMoved: event(), onActivated: event(), onAttached: event(), onReplaced: event() },
     windows: { onFocusChanged: event() },
+    permissions: { onAdded: event() },
   };
 }
 async function boot(sessionReady: boolean) {

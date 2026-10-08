@@ -77,7 +77,7 @@ Chrome 重启会先匹配浏览器恢复的固定标签，再补建缺失入口�
 
 使用 `tabs`、`storage`、`contextMenus`、`scripting`、`favicon`，以及 HTTP/HTTPS 网站访问权限。用途分别为标签管理、本机存储、网页右键菜单、链接守卫及 Chrome favicon 缓存。Chrome 会显示标准的网站数据访问提示；本扩展不读取网页正文，不包含远程服务、账号、分析或遥测。
 
-如果手动收紧某个站点的网站访问权限，外链守卫可能无法安装；编辑时会提示权限不足。自定义视图保存在弹窗本地，Favorite 定义在 `chrome.storage.local`，实例映射在 `chrome.storage.session`。启动时校验并修复损坏或重复记录。
+如果 Chrome 收回了某个 Favorite 网站的访问权限（例如扩展详情里“网站访问权限”改成“点击时”，或重新安装 CRX 后），链接分流不会生效，弹窗会显示黄色提示条，点“允许”即可恢复，无需刷新网页。添加或编辑 Favorite 时也会顺带请求该网站的权限。自定义视图保存在弹窗本地，Favorite 定义在 `chrome.storage.local`，实例映射在 `chrome.storage.session`。启动时校验并修复损坏或重复记录。
 
 ## 开发与验证
 

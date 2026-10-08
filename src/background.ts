@@ -124,6 +124,15 @@ chrome.tabs.onMoved.addListener((_tabId, info) => {
     void runEvent(() => controller.handleTabMoved(info.windowId));
   }, 120));
 });
+// Site access can be granted later (popup prompt, extension details page);
+// install the guards right away instead of waiting for the next page load.
+chrome.permissions.onAdded.addListener(() => {
+  appendLog("site-access-added");
+  void runEvent(async () => {
+    await controller.refreshAllGuards();
+    return true;
+  });
+});
 chrome.windows.onFocusChanged.addListener(() => { void broadcastStateChanged(); });
 chrome.tabs.onActivated.addListener(() => { void broadcastStateChanged(); });
 chrome.tabs.onAttached.addListener((tabId, info) => {

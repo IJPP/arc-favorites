@@ -188,6 +188,30 @@ export const favoriteApi = {
     return chrome.permissions.contains({ origins: [permissionPatternForSite(siteKey)] });
   },
 
+  /** Sites (registrable domains) that Chrome currently withholds from the extension. */
+  async missingSiteAccess(siteKeys: string[]): Promise<string[]> {
+    if (!hasExtensionRuntime) {
+      const forced = new URLSearchParams(globalThis.location?.search).get("noaccess");
+      return forced ? siteKeys.filter((key) => forced.split(",").includes(key)) : [];
+    }
+    const results = await Promise.all(siteKeys.map((key) => favoriteApi.hasSiteAccess(key)));
+    return siteKeys.filter((_, index) => !results[index]);
+  },
+
+  /**
+   * Asks Chrome for access to these sites. Must be the first await inside a
+   * click handler: Chrome only shows the prompt during a user gesture. Already
+   * granted sites resolve true without a prompt.
+   */
+  async requestSiteAccess(siteKeys: string[]): Promise<boolean> {
+    if (!hasExtensionRuntime || siteKeys.length === 0) return true;
+    try {
+      return await chrome.permissions.request({ origins: siteKeys.map(permissionPatternForSite) });
+    } catch {
+      return false;
+    }
+  },
+
   /** Chrome's own favicon cache: no network, same origin (so colours can be read). */
   faviconUrl(pageUrl: string): string {
     if (!hasExtensionRuntime) {

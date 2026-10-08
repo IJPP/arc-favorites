@@ -353,9 +353,6 @@ export class FavoriteController {
       ) {
         throw new FavoritesError("site-already-favorite", "这个站点已经是 Favorite 了");
       }
-      if (updated.guardEnabled && !(await this.browser.hasSiteAccess(updated.siteKey))) {
-        throw new FavoritesError("site-access-needed", "需要先允许该网站的链接访问权限");
-      }
       favorites[index] = updated;
       await this.store.saveFavorites(favorites);
 
@@ -777,6 +774,13 @@ export class FavoriteController {
         this.store.saveFavorites(sortFavorites(favorites)),
         this.store.saveRuntimes(runtimes),
       ]);
+    });
+  }
+
+  /** Re-injects every live guard, e.g. after the user granted site access. */
+  async refreshAllGuards(): Promise<void> {
+    await this.serialize(async () => {
+      await this.refreshGuards(await this.store.loadFavorites(), await this.store.loadRuntimes());
     });
   }
 

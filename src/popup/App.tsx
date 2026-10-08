@@ -1,6 +1,7 @@
 import type { JSX } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { AppSnapshot, CurrentTabContext, FavoriteView, UpdateFavoriteInput } from "../core/types";
+import { siteKeyForUrl } from "../core/url";
 import { favoriteApi, previewBrands } from "./api";
 import { cachedBrand, extractBrand, fallbackBrand, rememberBrand } from "./brand";
 import {
@@ -31,6 +32,7 @@ export function App() {
   const [snapshot, setSnapshot] = useState<AppSnapshot>();
   const [context, setContext] = useState<CurrentTabContext>();
   const [strays, setStrays] = useState(0);
+  const [noAccess, setNoAccess] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string>();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>();
@@ -77,6 +79,8 @@ export function App() {
         deferredRefresh.current = true;
         return;
       }
+      const guarded = [...new Set(next.favorites.filter((favorite) => favorite.guardEnabled).map((favorite) => favorite.siteKey))];
+      setNoAccess(await favoriteApi.missingSiteAccess(guarded).catch(() => []));
       setSnapshot((previous) => previous && snapshotKey(previous) === snapshotKey(next) ? previous : next);
       setContext(nextContext);
       setStrays(blanks);
@@ -224,16 +228,15 @@ export function App() {
   }, [editor, menu]);
 
   const saveEditor = async (favoriteId: string, changes: UpdateFavoriteInput) => {
-    const target = byId(favoriteId);
-    if (changes.guardEnabled && changes.homeUrl && target) {
-      let siteKey = target.siteKey;
-      try { siteKey = new URL(changes.homeUrl).hostname; } catch { /* Validation happens in the background. */ }
-      if (!(await favoriteApi.hasSiteAccess(siteKey).catch(() => true))) {
-        throw new Error("Chrome 尚未允许访问这个网站。请在扩展详情的“网站访问权限”中允许，再开启外链分流。");
-      }
+    // Send the update first, then ask for site access in the same click:
+    // Chrome may close the popup to show its prompt, and the save must not
+    // depend on the popup surviving that.
+    const saved = favoriteApi.update(favoriteId, changes);
+    if (changes.guardEnabled && changes.homeUrl) {
+      try { void favoriteApi.requestSiteAccess([siteKeyForUrl(changes.homeUrl)]); } catch { /* Validation happens in the background. */ }
     }
     // Errors propagate to the editor, which keeps the form open.
-    const next = await favoriteApi.update(favoriteId, changes);
+    const next = await saved;
     setSnapshot(next);
     closeEditor();
     showToast("已保存");
@@ -252,7 +255,13 @@ export function App() {
     setBusy(true);
     const before = new Set(favorites.map((favorite) => favorite.id));
     try {
-      const result = await favoriteApi.addCurrent();
+      // Same gesture as the click: start adding, then ask for the site's access
+      // so link handling works at once (Chrome may close the popup to ask).
+      const adding = favoriteApi.addCurrent();
+      if (context?.url) {
+        try { void favoriteApi.requestSiteAccess([siteKeyForUrl(context.url)]); } catch { /* Unsupported page. */ }
+      }
+      const result = await adding;
       setSnapshot(result.snapshot);
       void favoriteApi.getContext().then(setContext).catch(() => undefined);
       const added = result.snapshot.favorites.find((favorite) => !before.has(favorite.id));
@@ -587,6 +596,28 @@ export function App() {
               onClose={() => void run(() => favoriteApi.closeRuntime(detailFavorite.id), { success: "页面已关闭，入口保留" })}
               onMenu={(x, y) => setMenu({ favoriteId: detailFavorite.id, x, y })}
             />
+          )}
+
+          {noAccess.length > 0 && (
+            <Banner>
+              <span>
+                Chrome 未允许访问 {noAccess.join("、")}，链接分流不会生效
+              </span>
+              <button
+                type="button"
+                class="text-btn"
+                onClick={() => {
+                  void favoriteApi.requestSiteAccess(noAccess).then((granted) => {
+                    if (granted) {
+                      setNoAccess([]);
+                      showToast("已允许，链接分流立即生效");
+                    }
+                  });
+                }}
+              >
+                允许
+              </button>
+            </Banner>
           )}
 
           {strays > 0 && (
