@@ -1,5 +1,5 @@
 import type { Favorite, FavoriteRuntime, FavoriteStore } from "./types";
-import { favoriteIdentityForUrl, normalizeWebUrl, siteKeyForUrl } from "./url";
+import { favoriteIdentityForUrl, normalizeWebUrl, opensSameSiteInNewTabByDefault, siteKeyForUrl } from "./url";
 
 const FAVORITES_KEY = "arcFavorites.v1";
 const RUNTIMES_KEY = "arcFavoriteRuntimes.v1";
@@ -101,6 +101,10 @@ function normalizeFavorite(
       forceGuardEnabled || typeof value.guardEnabled !== "boolean"
         ? true
         : value.guardEnabled,
+    // Entries saved before 0.6.0 pick up the site's default once.
+    sameSiteInNewTab: typeof value.sameSiteInNewTab === "boolean"
+      ? value.sameSiteInNewTab
+      : opensSameSiteInNewTabByDefault(homeUrl) || undefined,
   };
 }
 

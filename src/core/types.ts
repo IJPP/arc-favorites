@@ -16,6 +16,11 @@ export interface Favorite {
   lastTabId?: number;
   siteKey: string;
   guardEnabled: boolean;
+  /**
+   * App-home mode: links within the site open in a new ordinary tab too, so
+   * the Favorite stays on its feed (YouTube navigates videos in place).
+   */
+  sameSiteInNewTab?: boolean;
 }
 
 export interface FavoriteRuntime {
@@ -109,7 +114,7 @@ export interface BrowserPort {
   discardTab(tabId: number): Promise<BrowserTab | undefined>;
   removeTab(tabId: number): Promise<void>;
   openOrdinaryTab(url: string, opener?: BrowserTab): Promise<BrowserTab>;
-  installLinkGuard(tabId: number, siteKey: string, favoriteHosts: string[]): Promise<void>;
+  installLinkGuard(tabId: number, siteKey: string, favoriteHosts: string[], sameSiteInNewTab?: boolean): Promise<void>;
   disableLinkGuard(tabId: number): Promise<void>;
   showSwitchHint(tabId: number): Promise<void>;
   hasSiteAccess(siteKey: string): Promise<boolean>;
@@ -142,6 +147,7 @@ export interface UpdateFavoriteInput {
   customIcon?: string;
   homeUrl?: string;
   guardEnabled?: boolean;
+  sameSiteInNewTab?: boolean;
 }
 
 export type ClientMessage =
@@ -159,7 +165,7 @@ export type ClientMessage =
   | { type: "remove-favorite"; favoriteId: string }
   | { type: "update-favorite"; favoriteId: string; changes: UpdateFavoriteInput }
   | { type: "reorder"; orderedIds: string[] }
-  | { type: "open-external"; url: string }
+  | { type: "open-external"; url: string; sameSite?: boolean }
   | { type: "route-link"; url: string };
 
 export type ServerMessage = { type: "state-changed" };

@@ -153,8 +153,7 @@ async function handleMessage(message: ClientMessage, sender: chrome.runtime.Mess
       case "update-favorite": data = await controller.update(message.favoriteId, message.changes); break;
       case "reorder": data = await controller.reorder(message.orderedIds); break;
       case "open-external":
-        await controller.openExternal(message.url, sender.tab ? fromChromeTab(sender.tab) : undefined);
-        data = null;
+        data = await controller.openExternal(message.url, sender.tab ? fromChromeTab(sender.tab) : undefined, message.sameSite);
         break;
       case "route-link":
         data = await controller.routeLink(message.url, sender.tab ? fromChromeTab(sender.tab) : undefined);

@@ -68,22 +68,24 @@ export function confirmedBrokenPinnedPlaceholderIds(
   );
 }
 
-export function installGuardInPage(siteKey: string, favoriteHosts: string[]): void {
+export function installGuardInPage(siteKey: string, favoriteHosts: string[], sameSiteInNewTab = false): void {
   const marker = "__arcFavoritesLinkGuard_v1";
   const pageWindow = window as typeof window & {
     [key: string]:
-      | { siteKey: string; favoriteHosts: string[]; enabled: boolean }
+      | { siteKey: string; favoriteHosts: string[]; enabled: boolean; sameSiteInNewTab?: boolean }
       | undefined;
   };
   const existing = pageWindow[marker];
   if (existing) {
     existing.siteKey = siteKey;
     existing.favoriteHosts = favoriteHosts;
+    existing.sameSiteInNewTab = sameSiteInNewTab;
     existing.enabled = true;
     return;
   }
 
-  const state = { siteKey, favoriteHosts, enabled: true };
+  const state = { siteKey, favoriteHosts, enabled: true, sameSiteInNewTab };
+  const withoutHash = (url: URL | Location): string => url.href.replace(/#.*$/, "");
   pageWindow[marker] = state;
 
   const identityOf = (url: URL): string =>
@@ -159,6 +161,34 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[]): vo
       }
 
       const isSameSite = hostname === state.siteKey || hostname.endsWith(`.${state.siteKey}`);
+      // App-home mode: content opens in its own tab and the Favorite stays put.
+      // The capture-phase listener runs before single-page apps such as
+      // YouTube can turn the click into an in-place navigation.
+      if (isSameSite && state.sameSiteInNewTab && withoutHash(destination) !== withoutHash(location)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        let settled = false;
+        const navigateInPlace = () => {
+          if (settled) return;
+          settled = true;
+          location.assign(destination.toString());
+        };
+        try {
+          const response = chrome.runtime.sendMessage({
+            type: "open-external",
+            url: destination.toString(),
+            sameSite: true,
+          }) as Promise<{ ok?: boolean; data?: string } | undefined> | undefined;
+          void Promise.resolve(response)
+            .then((result: { ok?: boolean; data?: string } | undefined) => {
+              if (result?.data !== "opened") navigateInPlace();
+            })
+            .catch(navigateInPlace);
+        } catch {
+          navigateInPlace();
+        }
+        return;
+      }
       if (isSameSite) {
         if (opensNewTab) {
           event.preventDefault();
@@ -184,10 +214,10 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[]): vo
         const response = chrome.runtime.sendMessage({
           type: "open-external",
           url: destination.toString(),
-        }) as Promise<{ ok?: boolean } | undefined> | undefined;
+        }) as Promise<{ ok?: boolean; data?: string } | undefined> | undefined;
         void Promise.resolve(response)
-          .then((result: { ok?: boolean } | undefined) => {
-            if (!result?.ok) fallbackToOriginalNavigation();
+          .then((result: { ok?: boolean; data?: string } | undefined) => {
+            if (result?.data !== "opened") fallbackToOriginalNavigation();
           })
           .catch(fallbackToOriginalNavigation);
       } catch {
@@ -484,12 +514,13 @@ export class ChromeBrowserPort implements BrowserPort {
     tabId: number,
     siteKey: string,
     favoriteHosts: string[],
+    sameSiteInNewTab = false,
   ): Promise<void> {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
         func: installGuardInPage,
-        args: [siteKey, favoriteHosts],
+        args: [siteKey, favoriteHosts, sameSiteInNewTab],
       });
     } catch {
       // Restricted pages and pages that are still navigating cannot be injected.

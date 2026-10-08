@@ -1,6 +1,6 @@
 import { FavoritesError } from "./errors";
 import { MAX_FAVORITES, type Favorite, type UpdateFavoriteInput } from "./types";
-import { favoriteIdentityForUrl, normalizeWebUrl, siteKeyForUrl } from "./url";
+import { favoriteIdentityForUrl, normalizeWebUrl, opensSameSiteInNewTabByDefault, siteKeyForUrl } from "./url";
 
 export function sortFavorites(favorites: Favorite[]): Favorite[] {
   return [...favorites].sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
@@ -38,6 +38,7 @@ export function createFavorite(
     lastKnownIconUrl: input.iconUrl,
     siteKey: siteKeyForUrl(homeUrl),
     guardEnabled: input.guardEnabled,
+    ...(opensSameSiteInNewTabByDefault(homeUrl) ? { sameSiteInNewTab: true } : {}),
   };
 }
 
@@ -64,6 +65,10 @@ export function updateFavorite(
 
   if (changes.guardEnabled !== undefined) {
     next.guardEnabled = changes.guardEnabled;
+  }
+
+  if (changes.sameSiteInNewTab !== undefined) {
+    next.sameSiteInNewTab = changes.sameSiteInNewTab;
   }
 
   return next;

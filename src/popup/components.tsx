@@ -377,6 +377,7 @@ export function Editor(props: {
   const [emoji, setEmoji] = useState(favorite.customIcon ?? "");
   const [homeUrl, setHomeUrl] = useState(favorite.homeUrl);
   const [guard, setGuard] = useState(favorite.guardEnabled);
+  const [appHome, setAppHome] = useState(Boolean(favorite.sameSiteInNewTab));
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -415,7 +416,7 @@ export function Editor(props: {
     setSaving(true);
     setError(undefined);
     try {
-      await props.onSave({ customTitle: name, customIcon: emoji, homeUrl, guardEnabled: guard });
+      await props.onSave({ customTitle: name, customIcon: emoji, homeUrl, guardEnabled: guard, sameSiteInNewTab: appHome });
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "保存失败");
       setSaving(false);
@@ -490,11 +491,27 @@ export function Editor(props: {
           <strong>其他网站的链接另开标签</strong>
           <small>
             {guard
-              ? `开：${siteLabel} 内的链接留在这里，去其他网站的链接在新的普通标签打开`
+              ? appHome
+                ? "开：去其他网站的链接在新的普通标签打开"
+                : `开：${siteLabel} 内的链接留在这里，去其他网站的链接在新的普通标签打开`
               : "关：所有链接都在这个标签里打开，和普通网页一样"}
           </small>
         </span>
         <input type="checkbox" role="switch" class="switch" checked={guard} onChange={(event) => setGuard(event.currentTarget.checked)} />
+      </label>
+
+      <label class={`switch-row${guard ? "" : " is-disabled"}`}>
+        <span>
+          <strong>站内链接也开新标签</strong>
+          <small>
+            {!guard
+              ? "需要先打开上面的开关"
+              : appHome
+                ? "开：像 App 主页一样，点开视频、文章会进入新标签，这里停在原处"
+                : `关：在 ${siteLabel} 内点链接，就在这个标签里继续浏览`}
+          </small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" disabled={!guard} checked={guard && appHome} onChange={(event) => setAppHome(event.currentTarget.checked)} />
       </label>
 
       {error && <p class="inline-error" role="alert">{error}</p>}

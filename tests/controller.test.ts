@@ -1168,3 +1168,28 @@ describe('app names', () => {
     expect(snapshot.favorites[0]?.appName).toBe('Declared');
   });
 });
+
+describe('app-home mode', () => {
+  it('turns on for YouTube and opens same-site links in a new tab only then', async () => {
+    browser.makeTab(1, 'https://www.youtube.com/');
+    browser.setOnlyActive(1);
+    await controller.addCurrent();
+    expect(store.favorites[0]?.sameSiteInNewTab).toBe(true);
+
+    const sender = browser.tabs.get(1);
+    expect(await controller.openExternal('https://www.youtube.com/watch?v=1', sender, true)).toBe('opened');
+    expect(browser.externalUrls).toEqual(['https://www.youtube.com/watch?v=1']);
+
+    await controller.update('favorite-1', { sameSiteInNewTab: false });
+    expect(await controller.openExternal('https://www.youtube.com/watch?v=2', sender, true)).toBe('navigate');
+    expect(browser.externalUrls).toHaveLength(1);
+  });
+
+  it('stays off for ordinary sites', async () => {
+    browser.makeTab(1, 'https://mail.test/');
+    browser.setOnlyActive(1);
+    await controller.addCurrent();
+    expect(store.favorites[0]?.sameSiteInNewTab).toBeUndefined();
+    expect(await controller.openExternal('https://mail.test/thread', browser.tabs.get(1), true)).toBe('navigate');
+  });
+});

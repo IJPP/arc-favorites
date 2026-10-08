@@ -835,8 +835,9 @@ export class FavoriteController {
     }));
   }
 
-  async openExternal(url: string, senderTab: BrowserTab | undefined): Promise<void> {
-    await this.serialize(async () => {
+  /** Opens a link from a Favorite in an ordinary tab; "navigate" asks the page to follow it in place. */
+  async openExternal(url: string, senderTab: BrowserTab | undefined, sameSite = false): Promise<"opened" | "navigate"> {
+    return this.serialize(async () => {
       if (!senderTab || !isSupportedPage(url)) {
         throw new FavoritesError("invalid-external-link", "无法打开这个外部链接");
       }
@@ -850,8 +851,10 @@ export class FavoriteController {
       const senderSiteKey = isSupportedPage(senderTab.url)
         ? siteKeyForUrl(senderTab.url)
         : favorite.siteKey;
-      if (siteKeyForUrl(url) === senderSiteKey) return;
+      // Same-site links only leave the Favorite in app-home mode.
+      if (siteKeyForUrl(url) === senderSiteKey && !(sameSite && favorite.sameSiteInNewTab)) return "navigate";
       await this.browser.openOrdinaryTab(url, senderTab);
+      return "opened";
     });
   }
 
@@ -1073,7 +1076,7 @@ export class FavoriteController {
     // from then on links within that site should stay in the same tab.
     const siteKey = isSupportedPage(currentUrl) ? siteKeyForUrl(currentUrl) : favorite.siteKey;
     if (await this.browser.hasSiteAccess(siteKey)) {
-      await this.browser.installLinkGuard(tabId, siteKey, favoriteHosts);
+      await this.browser.installLinkGuard(tabId, siteKey, favoriteHosts, Boolean(favorite.sameSiteInNewTab));
     }
   }
 }

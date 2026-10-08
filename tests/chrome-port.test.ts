@@ -224,6 +224,7 @@ function runGuardClick(
   anchor: FakeAnchor,
   sendMessage: ReturnType<typeof vi.fn>,
   favoriteHosts: string[] = [],
+  sameSiteInNewTab = false,
 ): { assign: ReturnType<typeof vi.fn>; preventDefault: ReturnType<typeof vi.fn> } {
   let clickListener: ((event: MouseEvent) => void) | undefined;
   const assign = vi.fn();
@@ -243,7 +244,7 @@ function runGuardClick(
     },
   });
 
-  installGuardInPage("example.com", favoriteHosts);
+  installGuardInPage("example.com", favoriteHosts, sameSiteInNewTab);
   const preventDefault = vi.fn();
   clickListener?.({
     defaultPrevented: false,
@@ -259,6 +260,37 @@ function runGuardClick(
   } as unknown as MouseEvent);
   return { assign, preventDefault };
 }
+
+describe("link guard in app-home mode", () => {
+  it("opens a same-site page in a new tab before the site can navigate in place", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "opened" });
+    const anchor = new FakeAnchor("https://app.example.com/watch?v=42", "", new Set());
+
+    const { assign, preventDefault } = runGuardClick(anchor, sendMessage, [], true);
+    await Promise.resolve();
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(sendMessage).toHaveBeenCalledWith({ type: "open-external", url: "https://app.example.com/watch?v=42", sameSite: true });
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("follows the link in place when the background declines", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "navigate" });
+    const anchor = new FakeAnchor("https://app.example.com/watch?v=42", "", new Set());
+
+    const { assign } = runGuardClick(anchor, sendMessage, [], true);
+    await Promise.resolve();
+
+    expect(assign).toHaveBeenCalledWith("https://app.example.com/watch?v=42");
+  });
+
+  it("leaves in-page anchors and the mode-off case alone", () => {
+    const sendMessage = vi.fn();
+    expect(runGuardClick(new FakeAnchor("https://app.example.com/#comments", "", new Set()), sendMessage, [], true).preventDefault).not.toHaveBeenCalled();
+    expect(runGuardClick(new FakeAnchor("https://app.example.com/watch?v=1", "", new Set()), sendMessage, [], false).preventDefault).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+});
 
 describe("link guard", () => {
   it("leaves a value-less download link to Chrome", () => {
@@ -284,7 +316,7 @@ describe("link guard", () => {
   });
 
   it("keeps the Favorite in place when the background opened the ordinary tab", async () => {
-    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: null });
+    const sendMessage = vi.fn().mockResolvedValue({ ok: true, data: "opened" });
     const anchor = new FakeAnchor("https://outside.test/article", "", new Set());
 
     const { assign } = runGuardClick(anchor, sendMessage);

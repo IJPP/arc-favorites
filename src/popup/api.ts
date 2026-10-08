@@ -10,7 +10,7 @@ import type {
   MessageResponse,
   UpdateFavoriteInput,
 } from "../core/types";
-import { permissionPatternForSite, siteKeyForUrl } from "../core/url";
+import { opensSameSiteInNewTabByDefault, permissionPatternForSite, siteKeyForUrl } from "../core/url";
 
 const hasExtensionRuntime = Boolean(globalThis.chrome?.runtime?.id);
 
@@ -30,6 +30,7 @@ function mockFavorite(id: string, homeUrl: string, appName: string, state: MockS
     lastKnownUrl: homeUrl,
     siteKey: siteKeyForUrl(homeUrl),
     guardEnabled: true,
+    sameSiteInNewTab: opensSameSiteInNewTabByDefault(homeUrl) || undefined,
     active,
     runtime: state === "closed" ? undefined : {
       favoriteId: id,

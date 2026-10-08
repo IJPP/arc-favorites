@@ -370,3 +370,5 @@ svg { display: block; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 .ctx.is-quiet .letter { background: var(--tonal-hover); color: var(--muted); }
+.switch-row.is-disabled { opacity: .5; }
+.switch-row + .switch-row { margin-top: -6px; }

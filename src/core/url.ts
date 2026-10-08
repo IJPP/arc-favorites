@@ -39,6 +39,18 @@ export function favoriteIdentityForUrl(value: string): string {
   return url.port ? `${hostname}:${url.port}` : hostname;
 }
 
+// Sites that navigate content in place (single-page apps) where the user
+// expects the Favorite to behave like an app home that opens content in tabs.
+const APP_HOME_SITES = new Set(["youtube.com", "m.youtube.com", "music.youtube.com"]);
+
+export function opensSameSiteInNewTabByDefault(url: string): boolean {
+  try {
+    return APP_HOME_SITES.has(favoriteIdentityForUrl(url));
+  } catch {
+    return false;
+  }
+}
+
 export function permissionPatternForSite(siteKey: string): string {
   const isIpAddress = /^[\d.]+$/.test(siteKey) || siteKey.includes(":");
   if (siteKey === "localhost" || isIpAddress) {
