@@ -1,5 +1,6 @@
 import { createFavorite, reorderFavorites, sortFavorites, updateFavorite } from "./domain";
 import { FavoritesError } from "./errors";
+import { appNameFromTitle } from "./names";
 import {
   MAX_FAVORITES,
   type AddFavoriteInput,
@@ -8,9 +9,11 @@ import {
   type AppSnapshot,
   type BrowserPort,
   type BrowserTab,
+  type CurrentTabContext,
   type Favorite,
   type FavoriteRuntime,
   type FavoriteStore,
+  type Logger,
   type UpdateFavoriteInput,
 } from "./types";
 import {
@@ -23,6 +26,7 @@ import {
 interface ControllerOptions {
   now?: () => number;
   createId?: () => string;
+  log?: Logger;
 }
 
 interface ReconcileOptions {
@@ -34,6 +38,9 @@ export class FavoriteController {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly now: () => number;
   private readonly createId: () => string;
+  private readonly log: Logger;
+  /** Favorites whose page was already asked for its name in this worker. */
+  private readonly nameChecked = new Set<string>();
 
   constructor(
     private readonly browser: BrowserPort,
@@ -42,6 +49,7 @@ export class FavoriteController {
   ) {
     this.now = options.now ?? (() => Date.now());
     this.createId = options.createId ?? (() => crypto.randomUUID());
+    this.log = options.log ?? (() => undefined);
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
@@ -162,6 +170,7 @@ export class FavoriteController {
           guardEnabled,
           now: this.now(),
         }),
+        appName: await this.resolveAppName(tab),
         lastTabId: tab.id,
       };
 
@@ -446,8 +455,14 @@ export class FavoriteController {
 
       runtimes[runtime.favoriteId] = this.runtimeFromTab(runtime.favoriteId, tab);
       const favorite = favorites[index]!;
+      let appName = favorite.appName;
+      if (!appName && tab.status === "complete" && !tab.discarded && !this.nameChecked.has(favorite.id)) {
+        this.nameChecked.add(favorite.id);
+        appName = await this.browser.readAppName?.(tab.id);
+      }
       favorites[index] = {
         ...favorite,
+        ...(appName ? { appName } : {}),
         lastKnownUrl: tab.url,
         lastKnownTitle: tab.title,
         lastKnownIconUrl: tab.favIconUrl ?? favorite.lastKnownIconUrl,
@@ -525,14 +540,17 @@ export class FavoriteController {
 
       let created = false;
       if (!favorite) {
-        favorite = createFavorite(favorites, {
-          id: this.createId(),
-          url: tab.url,
-          title: tab.title,
-          iconUrl: tab.favIconUrl,
-          guardEnabled: true,
-          now: this.now(),
-        });
+        favorite = {
+          ...createFavorite(favorites, {
+            id: this.createId(),
+            url: tab.url,
+            title: tab.title,
+            iconUrl: tab.favIconUrl,
+            guardEnabled: true,
+            now: this.now(),
+          }),
+          appName: await this.resolveAppName(tab),
+        };
         favorites.push(favorite);
         created = true;
       }
@@ -580,6 +598,7 @@ export class FavoriteController {
         const adopted = await this.findAdoptablePinnedTab(favorite, tabId);
         const restored =
           adopted ?? (await this.browser.createPinnedTab(favorite.homeUrl, false, true, windowId ?? entry?.[1].windowId));
+        this.log("restore-after-close", { favoriteId, closedTabId: tabId, restoredTabId: restored.id, adopted: Boolean(adopted) });
         runtimes[favorite.id] = this.runtimeFromTab(favorite.id, restored);
         const index = favorites.findIndex((item) => item.id === favorite.id);
         favorites[index] = adopted
@@ -684,9 +703,7 @@ export class FavoriteController {
           }
         }
         if (!tab) continue;
-        if (isSupportedPage(tab.url)) {
-          tab = await this.settleRestoredPlaceholder(tab);
-        } else {
+        if (!isSupportedPage(tab.url)) {
           // A tab that came back on about:blank is navigated to its saved URL
           // again instead of being abandoned as a blank Favorite.
           tab = await this.repairUnsupportedTab(tab, favorite);
@@ -706,7 +723,7 @@ export class FavoriteController {
           // pinned tabs instead of becoming duplicate entries.
           if (coveredIdentities.has(favoriteIdentityForUrl(tab.url))) continue;
           if (favorites.length >= MAX_FAVORITES) break;
-          const settledTab = await this.settleRestoredPlaceholder(tab);
+          const settledTab = tab;
           const favorite = createFavorite(favorites, {
             id: this.createId(),
             url: settledTab.url,
@@ -724,13 +741,32 @@ export class FavoriteController {
       }
 
       if (options.restoreMissing) {
+        // Tab ids do not survive a restart, so a Favorite that came back as a
+        // blank pinned tab cannot be recognised by id. Such idle blanks are
+        // reused (in tab-strip order) before any new tab is created, so a
+        // blank left by an earlier session is consumed instead of piling up.
+        const blanks = pinnedTabs
+          .filter((tab) => !usedTabIds.has(tab.id) && this.isIdleBlank(tab))
+          .sort((a, b) => a.windowId - b.windowId || a.index - b.index);
         for (const favorite of favorites) {
           if (runtimes[favorite.id]) continue;
-          const tab = await this.browser.createPinnedTab(favorite.homeUrl, false, true);
+          const blank = blanks.shift();
+          const tab = blank
+            ? await this.repairUnsupportedTab(blank, favorite)
+            : await this.browser.createPinnedTab(favorite.homeUrl, false, true);
+          this.log(blank ? "restore-reused-blank" : "restore-created", { favoriteId: favorite.id, tabId: tab.id });
+          usedTabIds.add(tab.id);
           favorite.lastTabId = tab.id;
           runtimes[favorite.id] = this.runtimeFromTab(favorite.id, tab);
         }
       }
+      this.log("reconcile", {
+        restoreMissing: Boolean(options.restoreMissing),
+        favorites: favorites.length,
+        matched: Object.keys(runtimes).length,
+        pinned: pinnedTabs.length,
+        blanks: pinnedTabs.filter((tab) => this.isIdleBlank(tab)).length,
+      });
 
       if (options.restoreMissing) await this.syncPinnedOrder(favorites, runtimes);
       // Install once, with the final Favorite list, so every live tab knows
@@ -742,6 +778,61 @@ export class FavoriteController {
         this.store.saveRuntimes(runtimes),
       ]);
     });
+  }
+
+  /** Describes the active tab for the popup's context card. */
+  async getContext(): Promise<CurrentTabContext> {
+    return this.serialize(async () => {
+      const tab = await this.browser.getActiveTab();
+      if (!tab || !isSupportedPage(tab.url)) return { kind: "unsupported", url: tab?.url, title: tab?.title };
+      const favorites = await this.store.loadFavorites();
+      const runtimes = await this.store.loadRuntimes();
+      const base = { url: tab.url, title: tab.title };
+      const own = Object.values(runtimes).find((runtime) => runtime.tabId === tab.id);
+      const owner = own && favorites.find((favorite) => favorite.id === own.favoriteId);
+      if (owner) {
+        return {
+          ...base,
+          kind: "favorite",
+          favoriteId: owner.id,
+          atHome: this.comparableUrl(tab.url) === this.comparableUrl(owner.homeUrl),
+        };
+      }
+      const identity = favoriteIdentityForUrl(tab.url);
+      const sameSite = favorites.find((favorite) => favoriteIdentityForUrl(favorite.homeUrl) === identity);
+      if (sameSite) return { ...base, kind: "same-site", favoriteId: sameSite.id };
+      return { ...base, kind: favorites.length >= MAX_FAVORITES ? "full" : "addable" };
+    });
+  }
+
+  /** Pinned about:blank tabs that no Favorite owns (leftovers of older versions). */
+  async findStrayBlanks(): Promise<number[]> {
+    return this.serialize(async () => {
+      const runtimes = await this.store.loadRuntimes();
+      const owned = new Set(Object.values(runtimes).map((runtime) => runtime.tabId));
+      return (await this.browser.getPinnedTabs())
+        .filter((tab) => !owned.has(tab.id) && this.isIdleBlank(tab))
+        .map((tab) => tab.id);
+    });
+  }
+
+  async closeStrayBlanks(): Promise<number> {
+    const ids = await this.findStrayBlanks();
+    for (const id of ids) await this.browser.removeTab(id);
+    this.log("close-stray-blanks", { count: ids.length });
+    return ids.length;
+  }
+
+  async getDiagnosticState(): Promise<{
+    favorites: Favorite[];
+    runtimes: Record<string, FavoriteRuntime>;
+    pinnedTabs: BrowserTab[];
+  }> {
+    return this.serialize(async () => ({
+      favorites: sortFavorites(await this.store.loadFavorites()),
+      runtimes: await this.store.loadRuntimes(),
+      pinnedTabs: await this.browser.getPinnedTabs(),
+    }));
   }
 
   async openExternal(url: string, senderTab: BrowserTab | undefined): Promise<void> {
@@ -861,9 +952,14 @@ export class FavoriteController {
     }
   }
 
-  private async settleRestoredPlaceholder(tab: BrowserTab): Promise<BrowserTab> {
-    if (!tab.pending || tab.active || tab.discarded) return tab;
-    return (await this.browser.discardTab(tab.id)) ?? tab;
+  /** A pinned tab sitting on about:blank with nothing about to load. */
+  private isIdleBlank(tab: BrowserTab): boolean {
+    return tab.pinned && !tab.active && !tab.pending && !isSupportedPage(tab.url);
+  }
+
+  private async resolveAppName(tab: BrowserTab): Promise<string> {
+    const declared = tab.discarded || tab.pending ? undefined : await this.browser.readAppName?.(tab.id);
+    return declared ?? appNameFromTitle(tab.title, tab.url);
   }
 
   /**
@@ -879,6 +975,7 @@ export class FavoriteController {
     const repairUrl = isSupportedPage(favorite.lastKnownUrl)
       ? favorite.lastKnownUrl
       : favorite.homeUrl;
+    this.log("repair-blank", { favoriteId: favorite.id, tabId: tab.id });
     return (await this.browser.updateTab(tab.id, { url: repairUrl })) ?? tab;
   }
 

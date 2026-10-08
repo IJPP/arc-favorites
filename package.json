@@ -13,9 +13,11 @@
     "package": "npm run build && node scripts/package.mjs"
   },
   "dependencies": {
+    "preact": "^10.29.8",
     "tldts": "^7.0.16"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
     "@types/chrome": "^0.1.36",
     "@types/node": "^24.3.0",
     "jszip": "^3.10.1",

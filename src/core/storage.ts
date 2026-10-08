@@ -89,6 +89,7 @@ function normalizeFavorite(
     title,
     customTitle: nonEmptyString(value.customTitle),
     customIcon: nonEmptyString(value.customIcon),
+    appName: nonEmptyString(value.appName),
     order,
     createdAt,
     lastKnownUrl,

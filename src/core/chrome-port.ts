@@ -1,5 +1,9 @@
-import type { BrowserPort, BrowserTab } from "./types";
-import { permissionPatternForSite } from "./url";
+import { cleanDeclaredName } from "./names";
+import type { BrowserPort, BrowserTab, Logger } from "./types";
+import { isSupportedPage, permissionPatternForSite } from "./url";
+
+const COMMIT_POLL_MS = 150;
+const COMMIT_TIMEOUT_MS = 6_000;
 
 export function fromChromeTab(
   tab: chrome.tabs.Tab,
@@ -255,8 +259,23 @@ function disableLinkGuardInPage(): void {
   if (existing) existing.enabled = false;
 }
 
+export function readAppNameInPage(): string | undefined {
+  const selectors = [
+    'meta[name="application-name"]',
+    'meta[name="apple-mobile-web-app-title"]',
+    'meta[property="og:site_name"]',
+  ];
+  for (const selector of selectors) {
+    const content = document.querySelector<HTMLMetaElement>(selector)?.content?.trim();
+    if (content) return content;
+  }
+  return undefined;
+}
+
 export class ChromeBrowserPort implements BrowserPort {
   private badgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(private readonly log: Logger = () => undefined) {}
 
   async getActiveTab(): Promise<BrowserTab | undefined> {
     const [tab] = await chrome.tabs.query({
@@ -305,22 +324,38 @@ export class ChromeBrowserPort implements BrowserPort {
       pinned: true,
       ...(windowId !== undefined ? { windowId } : {}),
     });
-    let finalTab: BrowserTab | undefined = fromChromeTab(created, url);
+    const finalTab = fromChromeTab(created, url);
     if (discardAfterCreate && created.id !== undefined) {
-      for (const delay of [0, 100, 300, 700]) {
-        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-        try {
-          const discarded = await chrome.tabs.discard(created.id);
-          if (!discarded) continue;
-          finalTab = (await this.settleDiscardedTab(created.id, url)) ?? finalTab;
-          break;
-        } catch {
-          // Chrome may refuse while the new tab has not committed yet.
-        }
-      }
+      // Discarding before the first navigation commits freezes the tab on
+      // about:blank, which is how blank pinned tabs used to pile up after a
+      // restart. Sleep only once the page committed, off the caller's path;
+      // the resulting onUpdated(discarded) event refreshes the runtime.
+      void this.discardOnceCommitted(created.id, url);
     }
     if (!finalTab) throw new Error("Chrome 没有返回新建标签的信息");
     return finalTab;
+  }
+
+  private async discardOnceCommitted(tabId: number, url: string): Promise<void> {
+    const committed = await this.waitForCommit(tabId);
+    const discarded = committed && !committed.active ? await this.discardTab(tabId) : undefined;
+    this.log("create-pinned", { tabId, url, committed: Boolean(committed), discarded: Boolean(discarded?.discarded) });
+  }
+
+  /** Resolves once the tab shows a real web page, or undefined on timeout/close. */
+  private async waitForCommit(tabId: number): Promise<chrome.tabs.Tab | undefined> {
+    const deadline = Date.now() + COMMIT_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      let tab: chrome.tabs.Tab;
+      try {
+        tab = await chrome.tabs.get(tabId);
+      } catch {
+        return undefined;
+      }
+      if (isSupportedPage(tab.url)) return tab;
+      await new Promise((resolve) => setTimeout(resolve, COMMIT_POLL_MS));
+    }
+    return undefined;
   }
 
   async reorderPinnedTabs(orderedTabIds: number[]): Promise<void> {
@@ -416,6 +451,7 @@ export class ChromeBrowserPort implements BrowserPort {
     if (current.url && current.url !== "about:blank") {
       return fromChromeTab(current, expectedUrl);
     }
+    this.log("discard-left-blank", { tabId, url: expectedUrl });
     return this.updateTab(tabId, { url: expectedUrl });
   }
 
@@ -493,6 +529,15 @@ export class ChromeBrowserPort implements BrowserPort {
       });
     } catch {
       // The tab may be navigating or already closed.
+    }
+  }
+
+  async readAppName(tabId: number): Promise<string | undefined> {
+    try {
+      const [result] = await chrome.scripting.executeScript({ target: { tabId }, func: readAppNameInPage });
+      return cleanDeclaredName(result?.result);
+    } catch {
+      return undefined;
     }
   }
 

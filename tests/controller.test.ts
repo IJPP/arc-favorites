@@ -278,7 +278,7 @@ describe("FavoriteController", () => {
     expect(store.runtimes["favorite-1"]?.tabId).toBe(7);
   });
 
-  it("adopts and discards an inactive Chrome restore placeholder", async () => {
+  it("adopts an inactive Chrome restore placeholder without discarding it", async () => {
     const tab = browser.makeTab(7, "https://music.example.com/", true);
     browser.tabs.set(tab.id, {
       ...tab,
@@ -292,8 +292,8 @@ describe("FavoriteController", () => {
 
     expect(store.favorites).toHaveLength(1);
     expect(store.runtimes["favorite-1"]?.tabId).toBe(7);
-    expect(browser.discardedIds).toEqual([7]);
-    expect(browser.tabs.get(7)?.discarded).toBe(true);
+    // Discarding a restore placeholder before it commits leaves about:blank.
+    expect(browser.discardedIds).toEqual([]);
   });
 
   it("recreates a directly closed pinned Favorite without stealing focus", async () => {
@@ -1084,5 +1084,87 @@ describe('failed Chrome mutations', () => {
     await expect(controller.remove('favorite-1')).rejects.toThrow('无法取消固定');
     expect(store.favorites).toHaveLength(1);
     expect(store.runtimes['favorite-1']?.tabId).toBe(1);
+  });
+});
+
+describe('blank pinned tabs after a restart', () => {
+  it('reuses a leftover blank pinned tab instead of creating another one', async () => {
+    store.favorites = [seedFavorite('mail', 'https://mail.test/inbox')];
+    browser.makeTab(4, 'about:blank', true);
+
+    await controller.reconcile({ adoptPinnedTabs: true, restoreMissing: true });
+
+    expect(browser.createdUrls).toEqual([]);
+    expect(store.runtimes.mail?.tabId).toBe(4);
+    expect(browser.tabs.get(4)?.url).toBe('https://mail.test/inbox');
+  });
+
+  it('never reuses the active blank tab or one that is still restoring', async () => {
+    store.favorites = [seedFavorite('mail', 'https://mail.test/')];
+    browser.makeTab(4, 'about:blank', true);
+    browser.setOnlyActive(4);
+    browser.tabs.set(5, { ...browser.makeTab(5, 'about:blank', true), pending: true });
+
+    await controller.reconcile({ adoptPinnedTabs: true, restoreMissing: true });
+
+    expect(browser.createdUrls).toEqual(['https://mail.test/']);
+    expect(browser.tabs.get(4)?.url).toBe('about:blank');
+  });
+
+  it('counts and closes only blank pinned tabs that no Favorite owns', async () => {
+    browser.makeTab(1, 'https://mail.test/');
+    browser.setOnlyActive(1);
+    await controller.addCurrent();
+    browser.makeTab(4, 'about:blank', true);
+    browser.makeTab(5, 'about:blank', false);
+
+    expect(await controller.findStrayBlanks()).toEqual([4]);
+    expect(await controller.closeStrayBlanks()).toBe(1);
+    expect(browser.tabs.has(4)).toBe(false);
+    expect(browser.tabs.has(5)).toBe(true);
+    expect(browser.tabs.has(1)).toBe(true);
+  });
+});
+
+describe('current tab context', () => {
+  it('describes an addable page, the Favorite itself, and a deep page', async () => {
+    browser.makeTab(1, 'https://mail.test/');
+    browser.setOnlyActive(1);
+    expect((await controller.getContext()).kind).toBe('addable');
+
+    await controller.addCurrent();
+    expect(await controller.getContext()).toMatchObject({ kind: 'favorite', favoriteId: 'favorite-1', atHome: true });
+
+    await browser.updateTab(1, { url: 'https://mail.test/thread/9' });
+    expect(await controller.getContext()).toMatchObject({ kind: 'favorite', atHome: false });
+  });
+
+  it('recognises another tab of the same app and browser pages', async () => {
+    store.favorites = [seedFavorite('mail', 'https://mail.test/')];
+    browser.makeTab(2, 'https://mail.test/other');
+    browser.setOnlyActive(2);
+    expect(await controller.getContext()).toMatchObject({ kind: 'same-site', favoriteId: 'mail' });
+
+    browser.makeTab(3, 'chrome://settings/');
+    browser.setOnlyActive(3);
+    expect((await controller.getContext()).kind).toBe('unsupported');
+  });
+});
+
+describe('app names', () => {
+  it('prefers the name the page declares, then a cleaned title', async () => {
+    browser.makeTab(1, 'https://www.bilibili.com/');
+    browser.tabs.set(1, { ...browser.tabs.get(1)!, title: '首页-个性推荐-哔哩哔哩', status: 'complete' });
+    browser.setOnlyActive(1);
+    await controller.addCurrent();
+    expect(store.favorites[0]?.appName).toBe('哔哩哔哩');
+
+    const declared = new FavoriteController(Object.assign(browser, { readAppName: async () => 'Declared' }), new MemoryStore(), {
+      createId: () => 'favorite-2',
+    });
+    browser.makeTab(2, 'https://music.test/');
+    browser.setOnlyActive(2);
+    const { snapshot } = await declared.addCurrent();
+    expect(snapshot.favorites[0]?.appName).toBe('Declared');
   });
 });

@@ -6,6 +6,8 @@ export interface Favorite {
   title: string;
   customTitle?: string;
   customIcon?: string;
+  /** Name the site gives itself (web app manifest, og:site_name, cleaned title). */
+  appName?: string;
   order: number;
   createdAt: number;
   lastKnownUrl?: string;
@@ -38,6 +40,44 @@ export interface AppSnapshot {
   favorites: FavoriteView[];
   maxFavorites: number;
 }
+
+export type CurrentTabKind =
+  /** The active tab is a Favorite's own instance. */
+  | "favorite"
+  /** Same app as a Favorite, but a different (unmanaged) tab. */
+  | "same-site"
+  /** An ordinary web page that can be added. */
+  | "addable"
+  /** A web page that cannot be added because the list is full. */
+  | "full"
+  /** chrome://, file:, the new tab page and the like. */
+  | "unsupported";
+
+export interface CurrentTabContext {
+  kind: CurrentTabKind;
+  url?: string;
+  title?: string;
+  favoriteId?: string;
+  /** For `favorite`: whether the instance still shows its initial page. */
+  atHome?: boolean;
+}
+
+export interface Diagnostics {
+  version: string;
+  generatedAt: string;
+  favorites: Array<Pick<Favorite, "id" | "homeUrl" | "lastKnownUrl" | "lastTabId" | "order">>;
+  runtimes: Record<string, FavoriteRuntime>;
+  pinnedTabs: Array<Pick<BrowserTab, "id" | "windowId" | "index" | "url" | "discarded" | "status" | "pending">>;
+  log: LogEntry[];
+}
+
+export interface LogEntry {
+  at: number;
+  event: string;
+  detail?: Record<string, unknown>;
+}
+
+export type Logger = (event: string, detail?: Record<string, unknown>) => void;
 
 export interface BrowserTab {
   id: number;
@@ -73,6 +113,8 @@ export interface BrowserPort {
   disableLinkGuard(tabId: number): Promise<void>;
   showSwitchHint(tabId: number): Promise<void>;
   hasSiteAccess(siteKey: string): Promise<boolean>;
+  /** Reads the name a page declares for itself; undefined when unavailable. */
+  readAppName?(tabId: number): Promise<string | undefined>;
 }
 
 export interface FavoriteStore {
@@ -104,6 +146,10 @@ export interface UpdateFavoriteInput {
 
 export type ClientMessage =
   | { type: "get-state" }
+  | { type: "get-context" }
+  | { type: "get-diagnostics" }
+  | { type: "count-stray-blanks" }
+  | { type: "close-stray-blanks" }
   | { type: "add-current"; guardEnabled?: boolean }
   | { type: "activate"; favoriteId: string }
   | { type: "close-runtime"; favoriteId: string }

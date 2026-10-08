@@ -2,12 +2,25 @@ import { ChromeBrowserPort, fromChromeTab } from "./core/chrome-port";
 import { FavoriteController } from "./core/controller";
 import { errorMessage, FavoritesError } from "./core/errors";
 import { ChromeFavoriteStore } from "./core/storage";
-import type { ClientMessage, MessageResponse } from "./core/types";
+import { appendLog, readLog } from "./core/log";
+import type { ClientMessage, Diagnostics, MessageResponse } from "./core/types";
 
 const ADD_CURRENT_MENU = "arc-favorites-add-current";
 const SESSION_READY_KEY = "arcFavorites.sessionReady.v1";
-const browserPort = new ChromeBrowserPort();
-const controller = new FavoriteController(browserPort, new ChromeFavoriteStore());
+const browserPort = new ChromeBrowserPort(appendLog);
+const controller = new FavoriteController(browserPort, new ChromeFavoriteStore(), { log: appendLog });
+
+async function diagnostics(): Promise<Diagnostics> {
+  const state = await controller.getDiagnosticState();
+  return {
+    version: chrome.runtime.getManifest().version,
+    generatedAt: new Date().toISOString(),
+    favorites: state.favorites.map(({ id, homeUrl, lastKnownUrl, lastTabId, order }) => ({ id, homeUrl, lastKnownUrl, lastTabId, order })),
+    runtimes: state.runtimes,
+    pinnedTabs: state.pinnedTabs.map(({ id, windowId, index, url, discarded, status, pending }) => ({ id, windowId, index, url, discarded, status, pending })),
+    log: await readLog(),
+  };
+}
 
 async function broadcastStateChanged(): Promise<void> {
   try { await chrome.runtime.sendMessage({ type: "state-changed" }); }
@@ -19,7 +32,10 @@ async function broadcastStateChanged(): Promise<void> {
 // Gate event handlers too, so a startup event cannot race the initial scan.
 const workerReady = (async () => {
   const session = await chrome.storage.session.get(SESSION_READY_KEY);
-  if (!session[SESSION_READY_KEY]) await controller.forgetRememberedTabs();
+  if (!session[SESSION_READY_KEY]) {
+    appendLog("browser-session-start");
+    await controller.forgetRememberedTabs();
+  }
   await controller.reconcile({ adoptPinnedTabs: true, restoreMissing: false });
   await chrome.storage.session.set({ [SESSION_READY_KEY]: true });
 })();
@@ -123,6 +139,10 @@ async function handleMessage(message: ClientMessage, sender: chrome.runtime.Mess
     let data: unknown;
     switch (message.type) {
       case "get-state": data = await controller.getSnapshot(); break;
+      case "get-context": data = await controller.getContext(); break;
+      case "get-diagnostics": data = await diagnostics(); break;
+      case "count-stray-blanks": data = (await controller.findStrayBlanks()).length; break;
+      case "close-stray-blanks": data = await controller.closeStrayBlanks(); break;
       case "add-current": data = await controller.addCurrent({ guardEnabled: message.guardEnabled }); break;
       case "activate": data = await controller.activate(message.favoriteId); break;
       case "sleep-runtime": data = await controller.sleepRuntime(message.favoriteId); break;
@@ -141,7 +161,8 @@ async function handleMessage(message: ClientMessage, sender: chrome.runtime.Mess
         break;
       default: throw new FavoritesError("unknown-message", "无法识别该操作");
     }
-    if (message.type !== "get-state" && message.type !== "open-external") void broadcastStateChanged();
+    const readOnly = ["get-state", "get-context", "get-diagnostics", "count-stray-blanks", "open-external"];
+    if (!readOnly.includes(message.type)) void broadcastStateChanged();
     return { ok: true, data };
   } catch (error) {
     return { ok: false, error: {

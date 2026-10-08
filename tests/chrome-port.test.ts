@@ -373,79 +373,73 @@ describe("link guard", () => {
 });
 
 describe("discarding tabs safely", () => {
-  it("navigates a too-early discarded tab back to its URL", async () => {
-    const created = makeChromeTab({
+  it("never discards a new pinned tab before its page commits", async () => {
+    vi.useFakeTimers();
+    const pendingTab = makeChromeTab({
       id: 5,
       pinned: true,
       pendingUrl: "https://mail.example.com/",
       status: "loading",
     });
-    const blanked = makeChromeTab({
-      id: 5,
-      pinned: true,
-      url: "about:blank",
-      discarded: true,
-    });
-    const restored = makeChromeTab({
-      id: 5,
-      pinned: true,
-      pendingUrl: "https://mail.example.com/",
-      status: "loading",
-    });
-    const update = vi.fn().mockResolvedValue(restored);
+    const discard = vi.fn();
     vi.stubGlobal("chrome", {
       windows: { getLastFocused: vi.fn().mockRejectedValue(new Error("no window")) },
       tabs: {
-        create: vi.fn().mockResolvedValue(created),
-        discard: vi.fn().mockResolvedValue(blanked),
-        get: vi.fn().mockResolvedValue(blanked),
-        update,
+        create: vi.fn().mockResolvedValue(pendingTab),
+        discard,
+        get: vi.fn().mockResolvedValue(pendingTab),
       },
     });
 
-    const tab = await new ChromeBrowserPort().createPinnedTab(
-      "https://mail.example.com/",
-      false,
-      true,
-    );
+    const tab = await new ChromeBrowserPort().createPinnedTab("https://mail.example.com/", false, true);
+    await vi.advanceTimersByTimeAsync(10_000);
 
-    expect(update).toHaveBeenCalledWith(5, { url: "https://mail.example.com/" });
     expect(tab.url).toBe("https://mail.example.com/");
+    expect(discard).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
-  it("keeps the sleeping state when the discarded tab kept its URL", async () => {
-    const created = makeChromeTab({
-      id: 6,
-      pinned: true,
-      pendingUrl: "https://mail.example.com/",
-      status: "loading",
-    });
-    const discarded = makeChromeTab({
-      id: 6,
-      pinned: true,
-      url: "https://mail.example.com/",
-      discarded: true,
+  it("puts a new pinned tab to sleep once its page has committed", async () => {
+    vi.useFakeTimers();
+    const created = makeChromeTab({ id: 6, pinned: true, pendingUrl: "https://mail.example.com/", status: "loading" });
+    const committed = makeChromeTab({ id: 6, pinned: true, url: "https://mail.example.com/", status: "loading" });
+    const discarded = makeChromeTab({ id: 6, pinned: true, url: "https://mail.example.com/", discarded: true });
+    const get = vi.fn().mockResolvedValueOnce(created).mockResolvedValue(committed);
+    const discard = vi.fn().mockImplementation(async () => {
+      get.mockResolvedValue(discarded);
+      return discarded;
     });
     const update = vi.fn();
     vi.stubGlobal("chrome", {
       windows: { getLastFocused: vi.fn().mockRejectedValue(new Error("no window")) },
+      tabs: { create: vi.fn().mockResolvedValue(created), discard, get, update },
+    });
+
+    await new ChromeBrowserPort().createPinnedTab("https://mail.example.com/", false, true);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(discard).toHaveBeenCalledWith(6);
+    expect(update).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("navigates a tab that a discard left on about:blank back to its URL", async () => {
+    const before = makeChromeTab({ id: 5, pinned: true, url: "https://mail.example.com/" });
+    const blanked = makeChromeTab({ id: 5, pinned: true, url: "about:blank", discarded: true });
+    const restored = makeChromeTab({ id: 5, pinned: true, pendingUrl: "https://mail.example.com/", status: "loading" });
+    const update = vi.fn().mockResolvedValue(restored);
+    vi.stubGlobal("chrome", {
       tabs: {
-        create: vi.fn().mockResolvedValue(created),
-        discard: vi.fn().mockResolvedValue(discarded),
-        get: vi.fn().mockResolvedValue(discarded),
+        discard: vi.fn().mockResolvedValue(blanked),
+        get: vi.fn().mockResolvedValueOnce(before).mockResolvedValue(blanked),
         update,
       },
     });
 
-    const tab = await new ChromeBrowserPort().createPinnedTab(
-      "https://mail.example.com/",
-      false,
-      true,
-    );
+    const tab = await new ChromeBrowserPort().discardTab(5);
 
-    expect(update).not.toHaveBeenCalled();
-    expect(tab.discarded).toBe(true);
-    expect(tab.url).toBe("https://mail.example.com/");
+    expect(update).toHaveBeenCalledWith(5, { url: "https://mail.example.com/" });
+    expect(tab?.url).toBe("https://mail.example.com/");
   });
 });
 
