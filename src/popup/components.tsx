@@ -1,6 +1,7 @@
 import type { ComponentChildren, JSX, RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { appNameFromTitle } from "../core/names";
+import { siteKeyForUrl } from "../core/url";
 import type { CurrentTabContext, FavoriteView, UpdateFavoriteInput } from "../core/types";
 import { favoriteApi } from "./api";
 import { displayName, displayUrl, favoriteState, shortState, tileState } from "./view";
@@ -381,6 +382,9 @@ export function Editor(props: {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const autoName = favorite.appName || appNameFromTitle(favorite.title, favorite.homeUrl);
   const currentUrl = favorite.runtime?.currentUrl;
+  let siteLabel = favorite.siteKey;
+  // The guard works per registrable domain (mail.google.com → google.com).
+  try { siteLabel = siteKeyForUrl(homeUrl); } catch { /* Keep the saved site while typing. */ }
   const canUseCurrent = Boolean(currentUrl && currentUrl !== homeUrl && /^https?:/.test(currentUrl));
 
   // Grow out of the tile that was edited.
@@ -483,8 +487,12 @@ export function Editor(props: {
 
       <label class="switch-row">
         <span>
-          <strong>外站链接在普通标签打开</strong>
-          <small>站内链接留在这里，去别的网站另开标签</small>
+          <strong>其他网站的链接另开标签</strong>
+          <small>
+            {guard
+              ? `开：${siteLabel} 内的链接留在这里，去其他网站的链接在新的普通标签打开`
+              : "关：所有链接都在这个标签里打开，和普通网页一样"}
+          </small>
         </span>
         <input type="checkbox" role="switch" class="switch" checked={guard} onChange={(event) => setGuard(event.currentTarget.checked)} />
       </label>
