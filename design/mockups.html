@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Favorites 视觉方向</title>
+<style>
+:root {
+  --page: #e9eaee;
+  --page-ink: #1f1f1f;
+  --page-muted: #5f6368;
+  --spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.9%, 1);
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page: #18181b;
+  --page-ink: #e8eaed;
+  --page-muted: #9aa0a6;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background: var(--page);
+  color: var(--page-ink);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background .3s;
+}
+.page-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  max-width: 1240px; margin: 0 auto; padding: 28px 24px 8px;
+}
+.page-head h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
+.page-head p { margin: 4px 0 0; color: var(--page-muted); }
+.theme-switch {
+  border: 1px solid color-mix(in srgb, var(--page-ink) 18%, transparent);
+  background: transparent; color: inherit; border-radius: 99px; padding: 6px 14px; font: inherit; cursor: pointer;
+}
+.stage {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 36px;
+  max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px;
+}
+.column { display: grid; gap: 14px; justify-items: center; }
+.column-label { text-align: center; max-width: 360px; }
+.column-label strong { display: block; font-size: 14px; }
+.column-label span { color: var(--page-muted); font-size: 12px; }
+
+/* ———————————————————————————— shared popup scaffolding */
+.popup {
+  position: relative;
+  width: 360px;
+  border-radius: 12px;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .08), 0 8px 28px rgb(0 0 0 / .14);
+  user-select: none;
+}
+.popup button { font: inherit; color: inherit; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+.tile { position: relative; touch-action: none; }
+.tile.is-lifted { z-index: 5; }
+.tile .face {
+  all: unset; box-sizing: border-box;
+  position: relative; width: 100%;
+  display: grid; justify-items: center; align-content: center;
+  cursor: default;
+}
+.icon-wrap { position: relative; display: grid; place-items: center; }
+.icon-wrap img { display: block; position: relative; z-index: 1; image-rendering: -webkit-optimize-contrast; }
+.glow {
+  position: absolute; inset: -40%;
+  background: var(--brand);
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity .35s var(--ease-out), transform .5s var(--spring);
+  pointer-events: none;
+}
+.tile.is-active .glow { opacity: var(--glow-strength, .35); transform: scale(1); }
+.name {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.more {
+  all: unset; box-sizing: border-box;
+  position: absolute; top: 6px; right: 6px;
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center; cursor: default;
+  opacity: 0; transform: scale(.8);
+  transition: opacity .15s, transform .25s var(--spring), background .15s;
+}
+.tile:hover .more, .tile:focus-within .more, .more[aria-expanded="true"] { opacity: 1; transform: none; }
+.more svg { width: 14px; height: 14px; }
+.badge {
+  position: absolute; z-index: 2; right: -3px; bottom: -3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  display: grid; place-items: center;
+  transform: scale(0); transition: transform .35s var(--spring);
+}
+.badge svg { width: 9px; height: 9px; }
+.tile[data-state="audible"] .badge, .tile[data-state="loading"] .badge { transform: scale(1); }
+.tile[data-state="loading"] .badge::after {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  border: 1.5px solid currentColor; border-right-color: transparent;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }
+.tile[data-state="sleeping"] img, .tile[data-state="closed"] img { transition: filter .3s, opacity .3s; }
+
+/* menu */
+.menu {
+  position: absolute; z-index: 20; min-width: 200px; padding: 6px;
+  border-radius: 10px;
+  transform-origin: var(--ox, top left);
+  animation: menu-in .22s var(--spring);
+}
+@keyframes menu-in { from { opacity: 0; transform: scale(.92); } }
+.menu button {
+  all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 7px 10px; border-radius: 6px; cursor: default; font-size: 13px;
+}
+.menu button svg { width: 16px; height: 16px; flex: none; opacity: .75; }
+.menu button[disabled] { opacity: .38; }
+.menu hr { border: 0; height: 1px; margin: 5px 4px; }
+.menu .kbd { margin-left: auto; font-size: 11px; opacity: .5; }
+
+/* toast */
+.toast {
+  position: absolute; z-index: 30; left: 50%; bottom: 12px;
+  padding: 7px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap;
+  transform: translate(-50%, 12px); opacity: 0;
+  transition: opacity .2s, transform .35s var(--spring);
+  pointer-events: none;
+}
+.toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+/* ———————————————————————————— A · 原生 */
+.popup.a {
+  --bg: #ffffff;
+  --ink: #1f1f1f;
+  --muted: #5f6368;
+  --tile: #f0f4f9;
+  --tile-hover: #e5eaf1;
+  --line: #e3e3e3;
+  --accent: #0b57d0;
+  --accent-soft: #d3e3fd;
+  --menu: #ffffff;
+  background: var(--bg); color: var(--ink);
+}
+:root[data-theme="dark"] .popup.a {
+  --bg: #202124;
+  --ink: #e3e3e3;
+  --muted: #9aa0a6;
+  --tile: #2d2e31;
+  --tile-hover: #37383b;
+  --line: #3c4043;
+  --accent: #a8c7fa;
+  --accent-soft: #0842a0;
+  --menu: #2d2e31;
+}
+.a .head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px 16px; }
+.a .title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.a .count { margin-left: 8px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.a .add {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 12px 0 10px; border-radius: 99px;
+  border: 0; background: var(--accent-soft); color: var(--accent);
+  font-weight: 550; cursor: default; transition: filter .15s, transform .3s var(--spring);
+}
+.a .add:hover { filter: brightness(.97); }
+.a .add:active { transform: scale(.96); }
+.a .add svg { width: 15px; height: 15px; }
+.a .grid { gap: 8px; padding: 2px 12px 12px; }
+.a .face { height: 92px; gap: 9px; border-radius: 12px; background: var(--tile); transition: background .15s, transform .35s var(--spring), box-shadow .2s; }
+.a .tile:hover .face { background: var(--tile-hover); }
+.a .face:active { transform: scale(.96); }
+.a .tile.is-active .face { background: color-mix(in srgb, var(--brand) 10%, var(--bg)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--brand) 45%, transparent); }
+.a .icon-wrap { width: 32px; height: 32px; }
+.a .icon-wrap img { width: 28px; height: 28px; border-radius: 6px; }
+.a .name { font-size: 12px; font-weight: 500; padding: 0 10px; }
+.a .dot {
+  position: absolute; left: 50%; bottom: 7px; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--muted); transform: translateX(-50%) scale(0); transition: transform .35s var(--spring), background .2s, width .35s var(--spring);
+}
+.a .tile[data-state="running"] .dot, .a .tile[data-state="audible"] .dot, .a .tile[data-state="loading"] .dot { transform: translateX(-50%) scale(1); }
+.a .tile.is-active .dot { transform: translateX(-50%) scale(1); width: 14px; border-radius: 2px; background: var(--brand); }
+.a .tile[data-state="sleeping"] img { filter: saturate(.2); opacity: .55; }
+.a .tile[data-state="closed"] img { filter: grayscale(1); opacity: .45; }
+.a .more:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.a .badge { background: var(--bg); color: var(--accent); box-shadow: 0 0 0 1px var(--line); }
+.a .foot { display: flex; justify-content: space-between; padding: 9px 16px 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+.a .menu { background: var(--menu); box-shadow: 0 0 0 1px var(--line), 0 6px 20px rgb(0 0 0 / .16); }
+.a .menu button:not([disabled]):hover, .a .menu button:focus-visible { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.a .menu hr { background: var(--line); }
+.a .menu .danger { color: #d93025; }
+:root[data-theme="dark"] .a .menu .danger { color: #f28b82; }
+.a .toast { background: var(--ink); color: var(--bg); }
+
+/* ———————————————————————————— B · Arc 玻璃 */
+.popup.b {
+  --ink: #18181b;
+  --muted: rgb(24 24 27 / .55);
+  --glass: rgb(255 255 255 / .55);
+  --glass-hover: rgb(255 255 255 / .75);
+  --glass-line: rgb(255 255 255 / .7);
+  --tint: var(--active-brand, #7c6cf2);
+  color: var(--ink);
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tint) 45%, #fff) 0%, transparent 60%),
+    radial-gradient(100% 80% at 100% 100%, color-mix(in srgb, var(--tint) 30%, #f5d0fe) 0%, transparent 60%),
+    color-mix(in srgb, var(--tint) 12%, #f4f2f8);
+  transition: --tint .6s;
+}
+:root[data-theme="dark"] .popup.b {
+  --ink: #f4f4f5;
+  --muted: rgb(244 244 245 / .55);
+  --glass: rgb(255 255 255 / .07);
+  --glass-hover: rgb(255 255 255 / .12);
+  --glass-line: rgb(255 255 255 / .1);
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tint) 40%, #000) 0%, transparent 65%),
+    radial-gradient(100% 80% at 100% 100%, color-mix(in srgb, var(--tint) 22%, #1e1b4b) 0%, transparent 60%),
+    #131218;
+}
+@property --tint { syntax: "<color>"; inherits: true; initial-value: #7c6cf2; }
+.b .head { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 6px 18px; }
+.b .title { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.b .count { margin-left: 8px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.b .add {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px;
+  border: 0; background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-line);
+  backdrop-filter: blur(12px); cursor: default; transition: background .15s, transform .35s var(--spring);
+}
+.b .add:hover { background: var(--glass-hover); transform: rotate(90deg); }
+.b .add svg { width: 16px; height: 16px; }
+.b .grid { gap: 10px; padding: 10px 14px 16px; }
+.b .face {
+  height: 84px; border-radius: 16px;
+  background: var(--glass); box-shadow: inset 0 0 0 1px var(--glass-line);
+  backdrop-filter: blur(16px) saturate(1.4);
+  transition: background .2s, transform .45s var(--spring), box-shadow .3s;
+}
+.b .tile:hover .face { background: var(--glass-hover); transform: translateY(-2px); }
+.b .face:active { transform: scale(.94) !important; }
+.b .tile.is-active .face {
+  background: #fff;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand) 35%, transparent), inset 0 0 0 1px rgb(255 255 255 / .9);
+}
+:root[data-theme="dark"] .b .tile.is-active .face { background: rgb(255 255 255 / .18); box-shadow: 0 6px 22px color-mix(in srgb, var(--brand) 45%, transparent), inset 0 0 0 1px rgb(255 255 255 / .25); }
+.b .icon-wrap { width: 34px; height: 34px; --glow-strength: .5; }
+.b .icon-wrap img { width: 30px; height: 30px; border-radius: 7px; }
+.b .name { display: none; }
+.b .tile[data-state="sleeping"] .face, .b .tile[data-state="closed"] .face { background: transparent; box-shadow: inset 0 0 0 1px var(--glass-line); backdrop-filter: none; }
+.b .tile[data-state="sleeping"] img { opacity: .6; filter: saturate(.5); }
+.b .tile[data-state="closed"] img { opacity: .4; filter: grayscale(1); }
+.b .label-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 14px; }
+.b .caption {
+  margin-top: 6px; text-align: center; font-size: 11.5px; font-weight: 550; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .2s;
+}
+.b .tile.is-active .caption { color: var(--ink); }
+.b .more { background: rgb(0 0 0 / .06); }
+:root[data-theme="dark"] .b .more { background: rgb(255 255 255 / .1); }
+.b .badge { background: #fff; color: var(--brand); box-shadow: 0 1px 4px rgb(0 0 0 / .2); }
+.b .foot { padding: 0 18px 14px; color: var(--muted); font-size: 11.5px; display: flex; justify-content: space-between; }
+.b .menu { background: color-mix(in srgb, #fff 82%, transparent); backdrop-filter: blur(24px) saturate(1.6); box-shadow: 0 0 0 1px rgb(255 255 255 / .6), 0 12px 32px rgb(0 0 0 / .18); }
+:root[data-theme="dark"] .b .menu { background: rgb(40 38 48 / .82); box-shadow: 0 0 0 1px rgb(255 255 255 / .1), 0 12px 32px rgb(0 0 0 / .5); }
+.b .menu button:not([disabled]):hover, .b .menu button:focus-visible { background: var(--tint); color: #fff; }
+.b .menu button:hover svg { opacity: 1; }
+.b .menu hr { background: rgb(127 127 127 / .2); }
+.b .toast { background: rgb(24 24 27 / .85); color: #fff; backdrop-filter: blur(10px); }
+
+/* ———————————————————————————— C · 启动器 */
+.popup.c {
+  --bg: #fbfbfa;
+  --ink: #1d1d1f;
+  --muted: #86868b;
+  --field: #f0f0ee;
+  --line: rgb(0 0 0 / .07);
+  --sel: rgb(0 0 0 / .05);
+  --accent: #0a66ff;
+  background: var(--bg); color: var(--ink);
+}
+:root[data-theme="dark"] .popup.c {
+  --bg: #1c1c1e;
+  --ink: #f5f5f7;
+  --muted: #8e8e93;
+  --field: #2c2c2e;
+  --line: rgb(255 255 255 / .08);
+  --sel: rgb(255 255 255 / .07);
+  --accent: #4d94ff;
+}
+.c .search {
+  display: flex; align-items: center; gap: 8px; margin: 12px 12px 4px; height: 38px; padding: 0 12px;
+  border-radius: 10px; background: var(--field);
+  transition: box-shadow .2s;
+}
+.c .search:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent); }
+.c .search svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.c .search input { all: unset; flex: 1; font-size: 14px; }
+.c .search input::placeholder { color: var(--muted); }
+.c .search .count { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.c .grid { gap: 2px; padding: 8px 10px 10px; }
+.c .face { height: 96px; gap: 8px; border-radius: 12px; transition: background .15s, transform .35s var(--spring), opacity .25s; }
+.c .tile:hover .face, .c .tile.is-kbd .face { background: var(--sel); }
+.c .face:active { transform: scale(.94); }
+.c .tile.is-hidden { opacity: .18; filter: grayscale(1); }
+.c .tile.is-hidden .face { pointer-events: none; }
+.c .icon-wrap {
+  width: 48px; height: 48px; border-radius: 13px;
+  background: color-mix(in srgb, var(--brand) 9%, var(--bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, var(--line));
+  transition: box-shadow .3s, transform .45s var(--spring);
+  --glow-strength: .45;
+}
+.c .tile:hover .icon-wrap { transform: scale(1.06); }
+.c .icon-wrap img { width: 26px; height: 26px; border-radius: 5px; }
+.c .tile.is-active .icon-wrap { box-shadow: inset 0 0 0 1.5px var(--brand), 0 4px 14px color-mix(in srgb, var(--brand) 35%, transparent); }
+.c .glow { inset: -25%; filter: blur(14px); }
+.c .name { font-size: 12px; font-weight: 500; padding: 0 8px; }
+.c .state { font-size: 10.5px; color: var(--muted); margin-top: -6px; height: 13px; }
+.c .tile[data-state="closed"] .state { opacity: 0; }
+.c .tile.is-active .state { color: var(--brand); font-weight: 600; }
+.c .tile[data-state="sleeping"] .icon-wrap img { opacity: .5; filter: saturate(.3); }
+.c .tile[data-state="closed"] .icon-wrap { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.c .tile[data-state="closed"] .icon-wrap img { opacity: .55; filter: grayscale(.9); }
+.c .num {
+  position: absolute; top: 8px; left: 10px; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity .2s;
+}
+.c .popup:hover .num, .c.popup:hover .num { opacity: .7; }
+.c .more:hover { background: var(--sel); }
+.c .badge { background: var(--bg); color: var(--accent); box-shadow: 0 0 0 1px var(--line); right: -4px; bottom: -4px; }
+.c .current {
+  display: flex; align-items: center; gap: 10px; margin: 0 10px 10px; padding: 9px 10px 9px 12px;
+  border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+  transition: border-color .2s, background .2s;
+}
+.c .current:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.c .current img { width: 20px; height: 20px; border-radius: 4px; }
+.c .current .meta { flex: 1; min-width: 0; }
+.c .current strong { display: block; font-size: 12.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c .current small { color: var(--muted); font-size: 11px; }
+.c .current button {
+  border: 0; height: 28px; padding: 0 12px; border-radius: 8px; background: var(--accent); color: #fff !important;
+  font-weight: 600; font-size: 12px; cursor: default; transition: transform .3s var(--spring), filter .15s;
+}
+.c .current button:hover { filter: brightness(1.08); }
+.c .current button:active { transform: scale(.95); }
+.c .menu { background: var(--bg); box-shadow: 0 0 0 1px var(--line), 0 10px 30px rgb(0 0 0 / .18); }
+.c .menu button:not([disabled]):hover, .c .menu button:focus-visible { background: var(--accent); color: #fff; }
+.c .menu hr { background: var(--line); }
+.c .toast { background: var(--ink); color: var(--bg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+@media (max-width: 420px) {
+  .popup { width: calc(100vw - 32px); }
+}
+</style>
+</head>
+<body>
+<header class="page-head">
+  <div>
+    <h1>Favorites 弹窗 · 三个视觉方向</h1>
+    <p>同一份数据。可以点击切换应用、悬停后点 ⋮ 或右键打开菜单、拖动排序。C 可以直接打字筛选、用方向键移动。</p>
+  </div>
+  <button class="theme-switch" id="theme">切换深色</button>
+</header>
+<main class="stage">
+  <section class="column">
+    <div class="popup a" data-dir="a"></div>
+    <div class="column-label"><strong>A · 原生</strong><span>Chrome 2023+ 的 Material 配色与胶囊按钮；只在当前应用加一圈品牌色光晕和底部指示条。融入浏览器，稳。</span></div>
+  </section>
+  <section class="column">
+    <div class="popup b" data-dir="b"></div>
+    <div class="column-label"><strong>B · Arc 玻璃</strong><span>背景随当前应用的品牌色流动；毛玻璃方块，选中项浮起成白卡。最像 Arc 的 Favorites，个性最强。</span></div>
+  </section>
+  <section class="column">
+    <div class="popup c" data-dir="c"></div>
+    <div class="column-label"><strong>C · 启动器</strong><span>键盘优先：打开就能打字筛选、回车直达；底部直接显示“当前页面”卡片，添加什么一目了然。</span></div>
+  </section>
+</main>
+<script>
+const ico = (d) => `https://www.google.com/s2/favicons?domain=${d}&sz=64`;
+const seed = [
+  { id: "bili", name: "哔哩哔哩", host: "bilibili.com", brand: "#00a1d6", state: "running", active: true },
+  { id: "yt", name: "YouTube", host: "youtube.com", brand: "#ff0033", state: "audible" },
+  { id: "gmail", name: "Gmail", host: "mail.google.com", brand: "#ea4335", state: "sleeping" },
+  { id: "notion", name: "Notion", host: "notion.so", brand: "#787774", state: "running" },
+  { id: "gpt", name: "ChatGPT", host: "chatgpt.com", brand: "#10a37f", state: "closed" },
+  { id: "gh", name: "GitHub", host: "github.com", brand: "#8250df", state: "loading" },
+];
+const stateLabel = { running: "运行中", audible: "播放中", sleeping: "已休眠", closed: "未打开", loading: "加载中" };
+const svg = {
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="18.5" r="1.8"/></svg>',
+  audio: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3zM12 14v6"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>',
+};
+
+// Each popup keeps its own copy so the three directions can be played with independently.
+const popups = [...document.querySelectorAll(".popup")].map((el) => ({
+  el, dir: el.dataset.dir, items: structuredClone(seed), filter: "", kbd: -1, added: false,
+}));
+
+function tileHtml(p, f, i) {
+  const caption = p.dir === "b" ? `<div class="caption">${f.name}</div>` : "";
+  const extra = p.dir === "c"
+    ? `<span class="num">${i + 1}</span><span class="name">${f.name}</span><span class="state">${f.active ? "当前" : stateLabel[f.state]}</span>`
+    : p.dir === "a" ? `<span class="name">${f.name}</span><span class="dot"></span>` : "";
+  return `<div class="tile ${f.active ? "is-active" : ""}" data-id="${f.id}" data-state="${f.state}" style="--brand:${f.brand}">
+    <button class="face" title="${f.name} · ${f.active ? "当前打开" : stateLabel[f.state]}">
+      <span class="icon-wrap"><span class="glow"></span><img src="${ico(f.host)}" alt="" draggable="false">
+        <span class="badge">${f.state === "audible" ? svg.audio : ""}</span></span>
+      ${extra}
+    </button>
+    <button class="more" aria-label="管理 ${f.name}" aria-haspopup="menu">${svg.more}</button>
+    ${caption}
+  </div>`;
+}
+
+function render(p) {
+  const n = p.items.length;
+  const tiles = p.items.map((f, i) => tileHtml(p, f, i)).join("");
+  const active = p.items.find((f) => f.active);
+  if (p.dir === "a") {
+    p.el.innerHTML = `<div class="head"><div><span class="title">Favorites</span><span class="count">${n} / 12</span></div>
+      <button class="add">${svg.plus}添加当前页</button></div>
+      <div class="grid">${tiles}</div>
+      <div class="foot"><span>拖动排序 · 1–9 直达</span><span>仅存本机</span></div>`;
+  } else if (p.dir === "b") {
+    p.el.style.setProperty("--tint", active?.brand ?? "#7c6cf2");
+    p.el.innerHTML = `<div class="head"><div><span class="title">Favorites</span><span class="count">${n}/12</span></div>
+      <button class="add" title="添加当前页">${svg.plus}</button></div>
+      <div class="grid">${tiles}</div>
+      <div class="foot"><span>拖动排序</span><span>1–9 直达</span></div>`;
+  } else {
+    p.el.innerHTML = `<label class="search">${svg.search}<input placeholder="搜索，或按 1–9 直达" value="${p.filter}"><span class="count">${n}/12</span></label>
+      <div class="grid">${tiles}</div>
+      ${p.added ? "" : `<div class="current"><img src="${ico("sspai.com")}" alt=""><div class="meta"><strong>少数派 · 高效工作，品质生活</strong><small>sspai.com · 当前页面</small></div><button class="add">添加</button></div>`}`;
+    applyFilter(p);
+  }
+}
+
+function applyFilter(p) {
+  const q = p.filter.trim().toLowerCase();
+  p.el.querySelectorAll(".tile").forEach((t, i) => {
+    const f = p.items[i];
+    t.classList.toggle("is-hidden", Boolean(q) && !(f.name.toLowerCase().includes(q) || f.host.includes(q)));
+    t.classList.toggle("is-kbd", i === p.kbd);
+  });
+}
+
+// FLIP: snapshot positions, mutate, animate from old to new with a spring.
+function flip(p, mutate) {
+  const before = new Map([...p.el.querySelectorAll(".tile")].map((t) => [t.dataset.id, t.getBoundingClientRect()]));
+  mutate();
+  render(p);
+  p.el.querySelectorAll(".tile").forEach((t) => {
+    const a = before.get(t.dataset.id);
+    if (!a) { t.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 420, easing: "cubic-bezier(.2,.9,.3,1.3)" }); return; }
+    const b = t.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (dx || dy) t.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: "none" }], { duration: 480, easing: getComputedStyle(document.documentElement).getPropertyValue("--spring") });
+  });
+}
+
+function toast(p, text) {
+  p.el.querySelector(".toast")?.remove();
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = text; p.el.append(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 1800);
+}
+
+function activate(p, id) {
+  const f = p.items.find((x) => x.id === id);
+  p.items.forEach((x) => { x.active = x.id === id; });
+  const wasOff = f.state === "closed" || f.state === "sleeping";
+  if (f.state !== "audible") f.state = wasOff ? "loading" : "running";
+  render(p);
+  if (wasOff) setTimeout(() => { if (f.state === "loading") { f.state = "running"; render(p); } }, 900);
+  toast(p, wasOff ? `正在打开 ${f.name}` : `切换到 ${f.name}`);
+}
+
+function openMenu(p, id, x, y) {
+  closeMenu(p);
+  const f = p.items.find((x) => x.id === id);
+  const live = f.state !== "closed";
+  const m = document.createElement("div");
+  m.className = "menu"; m.setAttribute("role", "menu");
+  const item = (icon, label, act, opts = {}) => `<button role="menuitem" data-act="${act}" class="${opts.danger ? "danger" : ""}" ${opts.off ? "disabled" : ""}>${svg[icon]}${label}${opts.kbd ? `<span class="kbd">${opts.kbd}</span>` : ""}</button>`;
+  m.innerHTML = [
+    item("open", live ? "切换到这里" : "打开", "open", { kbd: "↵" }),
+    item("moon", "休眠", "sleep", { off: !live || f.state === "sleeping" || f.active || f.state === "audible" }),
+    item("x", "关闭页面", "close", { off: !live }),
+    "<hr>",
+    item("home", "回到初始页面", "home", { off: !live }),
+    item("pin", "把当前页面设为初始页面", "sethome", { off: !live }),
+    item("edit", "编辑…", "edit", { kbd: "F2" }),
+    "<hr>",
+    item("trash", "移除", "remove", { danger: true }),
+  ].join("");
+  p.el.append(m);
+  const box = p.el.getBoundingClientRect();
+  const w = m.offsetWidth, h = m.offsetHeight;
+  let left = x - box.left, top = y - box.top;
+  const flipX = left + w > box.width - 8, flipY = top + h > box.height - 8;
+  left = flipX ? Math.max(8, left - w) : left;
+  top = flipY ? Math.max(8, top - h) : top;
+  m.style.left = `${left}px`; m.style.top = `${top}px`;
+  m.style.setProperty("--ox", `${flipY ? "bottom" : "top"} ${flipX ? "right" : "left"}`);
+  if (m.offsetHeight > box.height - 16) p.el.style.minHeight = `${m.offsetHeight + 16}px`;
+  p.el.querySelector(`.tile[data-id="${id}"] .more`)?.setAttribute("aria-expanded", "true");
+  m.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b || b.disabled) return;
+    closeMenu(p);
+    const act = b.dataset.act;
+    if (act === "open") activate(p, id);
+    else if (act === "sleep") { f.state = "sleeping"; render(p); toast(p, "已休眠，点击即可唤醒"); }
+    else if (act === "close") { f.state = "closed"; f.active = false; render(p); toast(p, "页面已关闭，入口保留"); }
+    else if (act === "remove") flip(p, () => { p.items = p.items.filter((x) => x.id !== id); }), toast(p, `已移除 ${f.name}`);
+    else toast(p, "（稿子里只演示）");
+  });
+  p.menu = m;
+  m.querySelector("button:not([disabled])")?.focus({ preventScroll: true });
+}
+function closeMenu(p) {
+  p.menu?.remove(); p.menu = undefined; p.el.style.minHeight = "";
+  p.el.querySelectorAll('.more[aria-expanded="true"]').forEach((b) => b.removeAttribute("aria-expanded"));
+}
+
+for (const p of popups) {
+  render(p);
+  let drag;
+  p.el.addEventListener("pointerdown", (e) => {
+    if (p.menu && !p.menu.contains(e.target)) closeMenu(p);
+    const tile = e.target.closest(".tile");
+    if (!tile || e.target.closest(".more") || e.button !== 0) return;
+    drag = { id: tile.dataset.id, x: e.clientX, y: e.clientY, tile, moved: false, slot: tile.getBoundingClientRect() };
+  });
+  p.el.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved) { drag.moved = true; drag.tile.setPointerCapture(e.pointerId); drag.tile.classList.add("is-lifted"); }
+    drag.tile.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
+    drag.tile.style.transition = "none";
+    // Find the tile under the pointer (ignore the one being dragged) and swap into its slot.
+    const over = [...p.el.querySelectorAll(".tile")].find((t) => {
+      if (t === drag.tile) return false;
+      const r = t.getBoundingClientRect();
+      return e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom;
+    });
+    if (over) {
+      const from = p.items.findIndex((f) => f.id === drag.id), to = p.items.findIndex((f) => f.id === over.dataset.id);
+      flip(p, () => p.items.splice(to, 0, p.items.splice(from, 1)[0]));
+      const fresh = p.el.querySelector(`.tile[data-id="${drag.id}"]`);
+      fresh.getAnimations().forEach((a) => a.cancel());
+      const slot = fresh.getBoundingClientRect();
+      // Keep the lifted tile exactly where it was on screen, relative to its new slot.
+      const vx = drag.slot.left + dx, vy = drag.slot.top + dy;
+      drag.x = e.clientX - (vx - slot.left); drag.y = e.clientY - (vy - slot.top);
+      drag.slot = slot; drag.tile = fresh;
+      fresh.classList.add("is-lifted"); fresh.setPointerCapture(e.pointerId);
+      fresh.style.transition = "none";
+      fresh.style.transform = `translate(${e.clientX - drag.x}px, ${e.clientY - drag.y}px) scale(1.06)`;
+    }
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const t = drag.tile, moved = drag.moved; const id = drag.id; drag = undefined;
+    if (moved) {
+      t.style.transition = "transform .45s var(--spring)"; t.style.transform = "";
+      setTimeout(() => t.classList.remove("is-lifted"), 450);
+      toast(p, "顺序已同步到固定标签");
+    } else activate(p, id);
+  };
+  p.el.addEventListener("pointerup", endDrag);
+  p.el.addEventListener("pointercancel", endDrag);
+  p.el.addEventListener("click", (e) => {
+    const more = e.target.closest(".more");
+    if (more) { const r = more.getBoundingClientRect(); openMenu(p, more.closest(".tile").dataset.id, r.right - 200, r.bottom + 4); return; }
+    if (e.target.closest(".add")) {
+      if (p.items.length >= 12) return toast(p, "已达到 12 个上限");
+      flip(p, () => { p.items.push({ id: "sspai" + Date.now(), name: "少数派", host: "sspai.com", brand: "#d71a1b", state: "running" }); p.added = true; });
+      toast(p, "已添加「少数派」· 点 ⋮ 可改名");
+    }
+  });
+  p.el.addEventListener("contextmenu", (e) => {
+    const tile = e.target.closest(".tile"); if (!tile) return;
+    e.preventDefault(); openMenu(p, tile.dataset.id, e.clientX, e.clientY);
+  });
+  p.el.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && p.menu) { closeMenu(p); return; }
+    if (p.dir !== "c") return;
+    const visible = p.items.map((_, i) => i).filter((i) => !p.el.querySelectorAll(".tile")[i].classList.contains("is-hidden"));
+    if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key) && visible.length) {
+      e.preventDefault();
+      const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 3, ArrowUp: -3 }[e.key];
+      let pos = visible.indexOf(p.kbd); pos = pos < 0 ? 0 : Math.max(0, Math.min(visible.length - 1, pos + step));
+      p.kbd = visible[pos]; applyFilter(p);
+    } else if (e.key === "Enter") {
+      const i = p.kbd >= 0 ? p.kbd : visible[0]; if (i !== undefined) activate(p, p.items[i].id);
+    } else if (/^[1-9]$/.test(e.key) && !p.filter) {
+      e.preventDefault(); const f = p.items[Number(e.key) - 1]; if (f) activate(p, f.id);
+    }
+  });
+  p.el.addEventListener("input", (e) => {
+    if (!e.target.matches("input")) return;
+    p.filter = e.target.value; p.kbd = -1; applyFilter(p);
+    const first = p.items.findIndex((_, i) => !p.el.querySelectorAll(".tile")[i].classList.contains("is-hidden"));
+    if (p.filter && first >= 0) { p.kbd = first; applyFilter(p); }
+  });
+}
+
+const themeBtn = document.getElementById("theme");
+themeBtn.addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  themeBtn.textContent = dark ? "切换浅色" : "切换深色";
+});
+</script>
+</body>
+</html>
