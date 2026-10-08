@@ -1,4 +1,5 @@
 import { reorderFavorites, updateFavorite } from "../core/domain";
+import { appendLog } from "../core/log";
 import { FavoritesError } from "../core/errors";
 import type {
   AddFavoriteResult,
@@ -203,12 +204,16 @@ export const favoriteApi = {
    * click handler: Chrome only shows the prompt during a user gesture. Already
    * granted sites resolve true without a prompt.
    */
-  async requestSiteAccess(siteKeys: string[]): Promise<boolean> {
-    if (!hasExtensionRuntime || siteKeys.length === 0) return true;
+  async requestSiteAccess(siteKeys: string[]): Promise<{ granted: boolean; error?: string }> {
+    if (!hasExtensionRuntime || siteKeys.length === 0) return { granted: true };
+    const origins = siteKeys.map(permissionPatternForSite);
     try {
-      return await chrome.permissions.request({ origins: siteKeys.map(permissionPatternForSite) });
-    } catch {
-      return false;
+      const granted = await chrome.permissions.request({ origins });
+      appendLog("site-access-request", { origins, granted });
+      return { granted };
+    } catch (error) {
+      appendLog("site-access-request", { origins, granted: false, error: String(error) });
+      return { granted: false, error: error instanceof Error ? error.message : String(error) };
     }
   },
 

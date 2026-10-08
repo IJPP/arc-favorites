@@ -74,6 +74,8 @@ export interface Diagnostics {
   runtimes: Record<string, FavoriteRuntime>;
   pinnedTabs: Array<Pick<BrowserTab, "id" | "windowId" | "index" | "url" | "discarded" | "status" | "pending">>;
   log: LogEntry[];
+  /** What Chrome actually grants right now (host access can be withheld by the user). */
+  permissions?: { origins?: string[]; permissions?: string[] };
 }
 
 export interface LogEntry {

@@ -607,10 +607,12 @@ export function App() {
                 type="button"
                 class="text-btn"
                 onClick={() => {
-                  void favoriteApi.requestSiteAccess(noAccess).then((granted) => {
+                  void favoriteApi.requestSiteAccess(noAccess).then(({ granted, error }) => {
                     if (granted) {
                       setNoAccess([]);
                       showToast("已允许，链接分流立即生效");
+                    } else {
+                      showToast(error ? `Chrome 拒绝了请求：${error}` : "Chrome 没有授予访问权限", { error: true });
                     }
                   });
                 }}

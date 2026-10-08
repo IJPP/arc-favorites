@@ -19,6 +19,7 @@ async function diagnostics(): Promise<Diagnostics> {
     runtimes: state.runtimes,
     pinnedTabs: state.pinnedTabs.map(({ id, windowId, index, url, discarded, status, pending }) => ({ id, windowId, index, url, discarded, status, pending })),
     log: await readLog(),
+    permissions: await chrome.permissions.getAll(),
   };
 }
 
