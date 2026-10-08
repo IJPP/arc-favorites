@@ -4,3 +4,6 @@ node_modules/
 *.crx
 *.zip
 .backups/
+
+# Local-only session transcripts
+会话记录/
