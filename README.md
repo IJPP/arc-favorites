@@ -25,8 +25,8 @@
 
 ## 安装
 
-1. 下载或克隆本仓库，打开 `chrome://extensions/`，开启右上角“开发者模式”。
-2. 点“加载已解压的扩展程序”，选择仓库里的 **`dist`** 文件夹（已构建好，无需安装依赖）。
+1. 从 [Releases](https://github.com/IJPP/arc-favorites/releases/latest) 下载 `favorites-for-chrome-v*.zip` 并解压（或克隆本仓库，使用其中已构建好的 **`dist`** 文件夹）。
+2. 打开 `chrome://extensions/`，开启右上角“开发者模式”，点“加载已解压的扩展程序”，选择解压出的文件夹。
 3. 建议把 Favorites 固定到工具栏，快捷键 `Cmd/Ctrl+Shift+Y` 打开弹窗。
 
 升级时在扩展卡片上点“重新加载”即可，数据会保留。
