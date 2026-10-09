@@ -125,6 +125,7 @@ npm run package   # build dist and the zip
 ### 0.7.0
 
 - Added an English interface and made it the default: Chrome set to Chinese shows Chinese, everything else shows English. The README is now available in English too.
+- New icon: three app cards fanned around one point, their top edges forming a bow.
 
 ### 0.6.1
 

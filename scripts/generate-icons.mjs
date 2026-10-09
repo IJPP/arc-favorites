@@ -24,12 +24,16 @@ function chunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, crc]);
 }
 
-// "Pinned app": a white app tile with a dark pin in its corner, on the
-// accent squircle. Drawn on a 128-unit grid; small sizes use a bolder
-// variant without the pin's centre dot so it stays crisp at 16 px.
-const ACCENT = [59, 108, 246];
-const INK = [28, 31, 39];
+// "Fan": three app cards fanned around one pivot below them, so their top
+// edges trace a bow. Drawn on a 128-unit grid. The side cards are cut away
+// from the centre card by an even gap. Toolbar sizes show the bare mark in
+// two blues; 48/128 put it in white on a blue gradient squircle.
+const CORE = [63, 111, 242];
+const WING = [122, 155, 249];
+const TOP = [91, 141, 255];
+const BOTTOM = [47, 95, 232];
 const WHITE = [255, 255, 255];
+const GAP = 5;
 
 function roundedRect(x, y, width, height, radius) {
   return (u, v) => {
@@ -40,28 +44,41 @@ function roundedRect(x, y, width, height, radius) {
   };
 }
 
-function disk(cx, cy, radius) {
-  return (u, v) => (u - cx) ** 2 + (v - cy) ** 2 <= radius ** 2;
+// Same as SVG's rotate(degrees cx cy) applied to a shape.
+function rotated(shape, degrees, cx, cy) {
+  const a = (-degrees * Math.PI) / 180;
+  const cos = Math.cos(a), sin = Math.sin(a);
+  return (u, v) => {
+    const du = u - cx, dv = v - cy;
+    return shape(cx + du * cos - dv * sin, cy + du * sin + dv * cos);
+  };
 }
 
+const core = roundedRect(39, 26, 50, 62, 17);
+const gap = roundedRect(39 - GAP, 26 - GAP, 50 + GAP * 2, 62 + GAP * 2, 17 + GAP);
+const card = roundedRect(41, 30, 46, 58, 16);
+const wings = [rotated(card, -30, 64, 112), rotated(card, 30, 64, 112)];
+const wing = (u, v) => !gap(u, v) && wings.some((w) => w(u, v));
+
+function mix(a, b, t) {
+  return a.map((c, i) => c + (b[i] - c) * t);
+}
+
+// Each layer is [inside(u, v), color(u, v)]; later layers paint over earlier.
 function layers(size) {
-  // Toolbar sizes fill the whole 16/32 px slot like Chrome's own icons; the
-  // 48/128 versions keep Chrome's recommended transparent margin. Tile and
-  // pin are centred as one group (x 22–106, y 20–104).
   if (size <= 32) {
     return [
-      [roundedRect(0, 0, 128, 128, 34), ACCENT],
-      [roundedRect(20, 46, 62, 62, 18), WHITE],
-      [disk(82, 44, 27), ACCENT],
-      [disk(82, 44, 18), INK],
+      [wing, () => WING],
+      [core, () => CORE],
     ];
   }
+  const background = (v) => mix(TOP, BOTTOM, Math.min(Math.max((v - 8) / 112, 0), 1));
+  // The mark sits at 20,20 scaled to 88 units inside the squircle.
+  const inner = (shape) => (u, v) => shape(((u - 20) * 128) / 88, ((v - 20) * 128) / 88);
   return [
-    [roundedRect(8, 8, 112, 112, 30), ACCENT],
-    [roundedRect(24, 46, 56, 56, 16), WHITE],
-    [disk(82, 42, 22), ACCENT],
-    [disk(82, 42, 15), INK],
-    [disk(82, 42, 5.5), WHITE],
+    [roundedRect(8, 8, 112, 112, 30), (u, v) => background(v)],
+    [inner(wing), (u, v) => mix(background(v), WHITE, 0.62)],
+    [inner(core), () => WHITE],
   ];
 }
 
@@ -81,7 +98,7 @@ function makePng(size) {
           const u = ((x + (sx + 0.5) / samples) * 128) / size;
           const v = ((y + (sy + 0.5) / samples) * 128) / size;
           let color;
-          for (const [inside, fill] of shapes) if (inside(u, v)) color = fill;
+          for (const [inside, fill] of shapes) if (inside(u, v)) color = fill(u, v);
           if (!color) continue;
           r += color[0]; g += color[1]; b += color[2]; covered += 1;
         }
