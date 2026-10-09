@@ -7,3 +7,4 @@ node_modules/
 
 # Local-only session transcripts
 会话记录/
+.claude/

@@ -45,12 +45,24 @@ function disk(cx, cy, radius) {
 }
 
 function layers(size) {
-  const small = size <= 32;
-  const tile = small ? roundedRect(28, 42, 58, 58, 16) : roundedRect(30, 40, 56, 56, 16);
-  const pin = small
-    ? [[disk(88, 38, 24), ACCENT], [disk(88, 38, 16), INK]]
-    : [[disk(88, 38, 20.5), ACCENT], [disk(88, 38, 13.5), INK], [disk(88, 38, 5.5), WHITE]];
-  return [[roundedRect(8, 8, 112, 112, 30), ACCENT], [tile, WHITE], ...pin];
+  // Toolbar sizes fill the whole 16/32 px slot like Chrome's own icons; the
+  // 48/128 versions keep Chrome's recommended transparent margin. Tile and
+  // pin are centred as one group (x 22–106, y 20–104).
+  if (size <= 32) {
+    return [
+      [roundedRect(0, 0, 128, 128, 34), ACCENT],
+      [roundedRect(20, 46, 62, 62, 18), WHITE],
+      [disk(82, 44, 27), ACCENT],
+      [disk(82, 44, 18), INK],
+    ];
+  }
+  return [
+    [roundedRect(8, 8, 112, 112, 30), ACCENT],
+    [roundedRect(24, 46, 56, 56, 16), WHITE],
+    [disk(82, 42, 22), ACCENT],
+    [disk(82, 42, 15), INK],
+    [disk(82, 42, 5.5), WHITE],
+  ];
 }
 
 function makePng(size) {
