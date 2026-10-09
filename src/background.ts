@@ -89,7 +89,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       setTimeout(() => {
         void Promise.all([
           chrome.action.setBadgeText({ tabId: converted.id, text: "" }),
-          chrome.action.setTitle({ tabId: converted.id, title: "管理 Favorites" }),
+          chrome.action.setTitle({ tabId: converted.id, title: "Bow" }),
         ]).catch(() => undefined);
       }, 5_000);
       throw error;

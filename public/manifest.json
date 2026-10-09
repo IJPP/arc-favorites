@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Favorites — Arc-style app tabs",
-  "short_name": "Favorites",
-  "description": "让 Chrome 原生固定标签成为可跨重启恢复的 Arc 风格 Favorites。",
-  "version": "0.6.0",
+  "name": "Bow",
+  "short_name": "Bow",
+  "description": "把常用网站变成 App：用 Chrome 原生固定标签做常驻入口，关掉、重启都会回来。",
+  "version": "0.6.1",
   "minimum_chrome_version": "116",
   "permissions": [
     "tabs",
@@ -21,7 +21,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "管理 Favorites",
+    "default_title": "Bow",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

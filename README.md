@@ -1,4 +1,4 @@
-# Favorites for Chrome
+# Bow
 
 把常用网站变成 App：一个 Manifest V3 扩展，用 Chrome **原生固定标签**实现 Arc 式的 Favorites。固定一次，入口就一直在标签栏（或 Vertical Tabs）最上方；关掉、重启都会回来，点开永远是同一个实例。
 
@@ -25,7 +25,7 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/IJPP/arc-favorites/releases/latest) 下载 `favorites-for-chrome-v*.zip` 并解压（或克隆本仓库，使用其中已构建好的 **`dist`** 文件夹）。
+1. 从 [Releases](https://github.com/IJPP/bow/releases/latest) 下载 `bow-v*.zip` 并解压（或克隆本仓库，使用其中已构建好的 **`dist`** 文件夹）。
 2. 打开 `chrome://extensions/`，开启右上角“开发者模式”，点“加载已解压的扩展程序”，选择解压出的文件夹。
 3. 建议把 Favorites 固定到工具栏，快捷键 `Cmd/Ctrl+Shift+Y` 打开弹窗。
 
@@ -101,6 +101,10 @@ npm run package   # 生成 dist 与 zip
 - **验证记录**：测试结果和仍需在真实 Chrome 中验证的项目见 [QA.md](QA.md)。
 
 ## 更新记录
+
+### 0.6.1
+
+- 改名为 Bow（原 Favorites for Chrome），不再在名字里使用 Arc。扩展 ID 和数据不变。
 
 ### 0.6.0
 

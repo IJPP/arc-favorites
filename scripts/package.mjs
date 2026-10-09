@@ -19,4 +19,4 @@ async function addDirectory(directory) {
 
 await addDirectory(dist);
 const archive = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-await writeFile(resolve("arc-favorites-chrome.zip"), archive);
+await writeFile(resolve("bow.zip"), archive);
