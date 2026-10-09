@@ -1,0 +1,5 @@
+{
+  "extName": { "message": "Bow" },
+  "extDescription": { "message": "把常用网站变成 App：用 Chrome 原生固定标签做常驻入口，关掉、重启都会回来。" },
+  "actionTitle": { "message": "Bow" }
+}

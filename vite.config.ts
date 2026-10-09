@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [preact()],
+  test: { setupFiles: ["tests/setup.ts"] },
   build: {
     outDir: "dist",
     emptyOutDir: true,

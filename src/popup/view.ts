@@ -1,5 +1,6 @@
 import { appNameFromTitle } from "../core/names";
 import type { AppSnapshot, FavoriteView } from "../core/types";
+import { t } from "../core/i18n";
 
 export type TileState = "closed" | "sleeping" | "loading" | "audible" | "running";
 
@@ -14,17 +15,18 @@ export function tileState(favorite: FavoriteView): TileState {
 
 /** Full state wording for the detail strip and assistive technology. */
 export function favoriteState(favorite: FavoriteView): string {
-  if (!favorite.runtime) return "未打开";
-  if (favorite.runtime.discarded) return "已休眠";
-  if (favorite.runtime.loading) return "加载中";
-  if (favorite.runtime.audible) return "正在播放";
-  return favorite.active ? "当前打开" : "正在运行";
+  if (!favorite.runtime) return t("stateClosed");
+  if (favorite.runtime.discarded) return t("stateSleeping");
+  if (favorite.runtime.loading) return t("stateLoading");
+  if (favorite.runtime.audible) return t("statePlaying");
+  return favorite.active ? t("stateCurrent") : t("stateRunning");
 }
 
 /** Compact wording under a tile. */
 export function shortState(favorite: FavoriteView): string {
-  if (favorite.active && favorite.runtime && !favorite.runtime.discarded) return "当前";
-  return { closed: "未打开", sleeping: "已休眠", loading: "加载中", audible: "播放中", running: "运行中" }[tileState(favorite)];
+  if (favorite.active && favorite.runtime && !favorite.runtime.discarded) return t("shortCurrent");
+  const short = { closed: "stateClosed", sleeping: "stateSleeping", loading: "stateLoading", audible: "shortPlaying", running: "shortRunning" } as const;
+  return t(short[tileState(favorite)]);
 }
 
 export function displayName(favorite: Pick<FavoriteView, "customTitle" | "appName" | "title" | "homeUrl">): string {

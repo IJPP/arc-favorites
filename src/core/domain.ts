@@ -1,6 +1,7 @@
 import { FavoritesError } from "./errors";
 import { MAX_FAVORITES, type Favorite, type UpdateFavoriteInput } from "./types";
 import { favoriteIdentityForUrl, normalizeWebUrl, opensSameSiteInNewTabByDefault, siteKeyForUrl } from "./url";
+import { t } from "./i18n";
 
 export function sortFavorites(favorites: Favorite[]): Favorite[] {
   return [...favorites].sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
@@ -20,11 +21,11 @@ export function createFavorite(
   const homeUrl = normalizeWebUrl(input.url);
   const identity = favoriteIdentityForUrl(homeUrl);
   if (favorites.some((favorite) => favoriteIdentityForUrl(favorite.homeUrl) === identity)) {
-    throw new FavoritesError("site-already-favorite", "这个站点已经是 Favorite 了");
+    throw new FavoritesError("site-already-favorite", t("errSiteExists"));
   }
 
   if (favorites.length >= MAX_FAVORITES) {
-    throw new FavoritesError("limit-reached", `最多只能添加 ${MAX_FAVORITES} 个 Favorite`);
+    throw new FavoritesError("limit-reached", t("errLimit", { max: MAX_FAVORITES }));
   }
 
   return {
@@ -80,7 +81,7 @@ export function reorderFavorites(favorites: Favorite[], orderedIds: string[]): F
     new Set(orderedIds).size !== favorites.length ||
     favorites.some((favorite) => !orderedIds.includes(favorite.id))
   ) {
-    throw new FavoritesError("invalid-order", "Favorite 排序数据无效");
+    throw new FavoritesError("invalid-order", t("errInvalidOrder"));
   }
 
   const byId = new Map(favorites.map((favorite) => [favorite.id, favorite]));

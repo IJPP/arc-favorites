@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Bow",
-  "short_name": "Bow",
-  "description": "把常用网站变成 App：用 Chrome 原生固定标签做常驻入口，关掉、重启都会回来。",
-  "version": "0.6.1",
+  "default_locale": "en",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
+  "version": "0.7.0",
   "minimum_chrome_version": "116",
   "permissions": [
     "tabs",
@@ -21,7 +22,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Bow",
+    "default_title": "__MSG_actionTitle__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

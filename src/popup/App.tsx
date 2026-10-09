@@ -10,6 +10,7 @@ import {
 } from "./components";
 import { gridLayout, moveSelection, shiftId } from "./layout";
 import { displayName, displayUrl, snapshotKey } from "./view";
+import { t } from "../core/i18n";
 
 interface MenuState { favoriteId?: string; x: number; y: number }
 interface EditorState { favoriteId: string; origin?: DOMRect }
@@ -86,8 +87,8 @@ export function App() {
       setStrays(blanks);
       setLoadError(undefined);
     } catch (error) {
-      if (snapshotRef.current) showToast(errorText(error, "无法刷新"), { error: true });
-      else setLoadError(errorText(error, "无法加载 Favorites"));
+      if (snapshotRef.current) showToast(errorText(error, t("refreshFailed")), { error: true });
+      else setLoadError(errorText(error, t("loadFailed")));
     }
   }, [showToast]);
 
@@ -117,7 +118,7 @@ export function App() {
       if (options.closePopup && !favoriteApi.isPreview) window.close();
       return next;
     } catch (error) {
-      showToast(errorText(error, "操作失败"), { error: true });
+      showToast(errorText(error, t("actionFailed")), { error: true });
       return undefined;
     } finally {
       setBusy(false);
@@ -239,14 +240,14 @@ export function App() {
     const next = await saved;
     setSnapshot(next);
     closeEditor();
-    showToast("已保存");
+    showToast(t("saved"));
   };
 
   const removeFavorite = async (favorite: FavoriteView) => {
     setEditor(undefined);
     const name = displayName(favorite);
     await run(() => favoriteApi.remove(favorite.id), {
-      success: favorite.runtime ? `已移除 ${name}，页面保留为普通标签` : `已移除 ${name}`,
+      success: favorite.runtime ? t("removedKeepPage", { name }) : t("removed", { name }),
     });
   };
 
@@ -265,11 +266,11 @@ export function App() {
       setSnapshot(result.snapshot);
       void favoriteApi.getContext().then(setContext).catch(() => undefined);
       const added = result.snapshot.favorites.find((favorite) => !before.has(favorite.id));
-      if (result.outcome === "focused-existing") showToast("这个网站已在 Favorites，已切换过去");
-      else if (result.outcome === "adopted") showToast("已接管这个标签，作为已有 Favorite 的实例");
-      else if (added) showToast(`已添加「${displayName(added)}」`, { action: { label: "改名", run: () => openEditor(added.id) } });
+      if (result.outcome === "focused-existing") showToast(t("existingSwitched"));
+      else if (result.outcome === "adopted") showToast(t("adopted"));
+      else if (added) showToast(t("added", { name: displayName(added) }), { action: { label: t("rename"), run: () => openEditor(added.id) } });
     } catch (error) {
-      showToast(errorText(error, "添加失败"), { error: true });
+      showToast(errorText(error, t("addFailed")), { error: true });
     } finally {
       setBusy(false);
     }
@@ -278,7 +279,7 @@ export function App() {
   const reorderTo = (ids: string[]) => {
     const current = (snapshot?.favorites ?? []).map((favorite) => favorite.id);
     if (ids.join() === current.join()) return Promise.resolve(undefined);
-    return run(() => favoriteApi.reorder(ids), { success: "顺序已同步到固定标签" });
+    return run(() => favoriteApi.reorder(ids), { success: t("reordered") });
   };
 
   const onContextAction = (action: ContextAction) => {
@@ -286,8 +287,8 @@ export function App() {
     const target = byId(favoriteId);
     if (action === "add") void addCurrent();
     else if (action === "edit" && favoriteId) openEditor(favoriteId);
-    else if (action === "home" && favoriteId) void run(() => favoriteApi.resetHome(favoriteId), { success: "已回到初始页面" });
-    else if (action === "set-home" && favoriteId) void run(() => favoriteApi.useCurrentAsHome(favoriteId), { success: "初始页面已更新" });
+    else if (action === "home" && favoriteId) void run(() => favoriteApi.resetHome(favoriteId), { success: t("wentHome") });
+    else if (action === "set-home" && favoriteId) void run(() => favoriteApi.useCurrentAsHome(favoriteId), { success: t("homeUpdated") });
     else if (action === "switch" && target) void activate(target);
   };
 
@@ -295,35 +296,35 @@ export function App() {
     const live = Boolean(favorite.runtime);
     const sleeping = Boolean(favorite.runtime?.discarded);
     return [
-      { kind: "action", icon: "open", label: live ? "切换到这里" : "打开", hint: "↵", run: () => void activate(favorite) },
+      { kind: "action", icon: "open", label: live ? t("switchHere") : t("open"), hint: "↵", run: () => void activate(favorite) },
       {
-        kind: "action", icon: "moon", label: "休眠", run: () => void run(() => favoriteApi.sleepRuntime(favorite.id), { success: "已休眠，点击即可唤醒" }),
+        kind: "action", icon: "moon", label: t("sleep"), run: () => void run(() => favoriteApi.sleepRuntime(favorite.id), { success: t("slept") }),
         disabled: !live || sleeping || favorite.active || Boolean(favorite.runtime?.audible),
       },
-      { kind: "action", icon: "close", label: "关闭页面", disabled: !live, run: () => void run(() => favoriteApi.closeRuntime(favorite.id), { success: "页面已关闭，入口保留" }) },
+      { kind: "action", icon: "close", label: t("closePage"), disabled: !live, run: () => void run(() => favoriteApi.closeRuntime(favorite.id), { success: t("pageClosed") }) },
       { kind: "separator" },
-      { kind: "action", icon: "home", label: "回到初始页面", disabled: !live, run: () => void run(() => favoriteApi.resetHome(favorite.id), { success: "已回到初始页面" }) },
-      { kind: "action", icon: "pin", label: "把当前页面设为初始页面", disabled: !live, run: () => void run(() => favoriteApi.useCurrentAsHome(favorite.id), { success: "初始页面已更新" }) },
-      { kind: "action", icon: "edit", label: "编辑…", hint: "F2", run: () => openEditor(favorite.id) },
+      { kind: "action", icon: "home", label: t("backHome"), disabled: !live, run: () => void run(() => favoriteApi.resetHome(favorite.id), { success: t("wentHome") }) },
+      { kind: "action", icon: "pin", label: t("setCurrentAsHome"), disabled: !live, run: () => void run(() => favoriteApi.useCurrentAsHome(favorite.id), { success: t("homeUpdated") }) },
+      { kind: "action", icon: "edit", label: t("editEllipsis"), hint: "F2", run: () => openEditor(favorite.id) },
       { kind: "separator" },
-      { kind: "action", icon: "trash", label: "移除", danger: true, run: () => void removeFavorite(favorite) },
+      { kind: "action", icon: "trash", label: t("remove"), danger: true, run: () => void removeFavorite(favorite) },
     ];
   };
 
   const metaMenu = (): MenuItem[] => [
     {
-      kind: "action", icon: "broom", label: strays ? `关闭 ${strays} 个空白固定标签` : "没有空白固定标签", disabled: !strays,
-      run: () => void favoriteApi.closeStrayBlanks().then((count) => { setStrays(0); showToast(`已关闭 ${count} 个空白标签`); }),
+      kind: "action", icon: "broom", label: strays ? t("closeBlanks", { count: strays }) : t("noBlanks"), disabled: !strays,
+      run: () => void favoriteApi.closeStrayBlanks().then((count) => { setStrays(0); showToast(t("blanksClosed", { count })); }),
     },
     {
-      kind: "action", icon: "copy", label: "复制诊断信息",
+      kind: "action", icon: "copy", label: t("copyDiagnostics"),
       run: () => void favoriteApi.diagnostics()
         .then((data) => navigator.clipboard.writeText(JSON.stringify(data, null, 2)))
-        .then(() => showToast("诊断信息已复制，只含本机记录"))
-        .catch((error) => showToast(errorText(error, "复制失败"), { error: true })),
+        .then(() => showToast(t("diagnosticsCopied")))
+        .catch((error) => showToast(errorText(error, t("copyFailed")), { error: true })),
     },
     { kind: "separator" },
-    { kind: "note", text: "1–9 打开 · 方向键选择 · ↵ 打开\nF2 编辑 · ⇧F10 菜单 · ⌥⇧ + 方向键 排序" },
+    { kind: "note", text: t("shortcutsNote") },
   ];
 
   // ——— Drag to reorder (pointer based, FLIP for the others) ——————————————
@@ -474,7 +475,7 @@ export function App() {
       <main class="shell" ref={rootRef}>
         <div class="fatal">
           <p>{loadError}</p>
-          <button type="button" class="pill" onClick={() => void refresh()}>重试</button>
+          <button type="button" class="pill" onClick={() => void refresh()}>{t("retry")}</button>
         </div>
       </main>
     );
@@ -505,9 +506,9 @@ export function App() {
               ref={inputRef}
               autoFocus
               value={query}
-              placeholder="Favorites"
+              placeholder={t("filterPlaceholder")}
               role="combobox"
-              aria-label="筛选 Favorites，或按 1–9 直接打开"
+              aria-label={t("filterLabel")}
               aria-expanded="true"
               aria-controls="favorites-grid"
               aria-activedescendant={selectedId ? `fav-${selectedId}` : undefined}
@@ -529,8 +530,8 @@ export function App() {
               <button
                 type="button"
                 class={`count${strays ? " has-alert" : ""}`}
-                title="诊断与快捷键"
-                aria-label={`${favorites.length} / ${max}，打开诊断与快捷键菜单`}
+                title={t("metaTitle")}
+                aria-label={t("countLabel", { count: favorites.length, max })}
                 aria-haspopup="menu"
                 onClick={(event) => {
                   const bounds = event.currentTarget.getBoundingClientRect();
@@ -545,8 +546,8 @@ export function App() {
           {snapshot && favorites.length === 0 ? (
             <section class="empty">
               <div class="empty-art" aria-hidden="true"><span /><span /><span /></div>
-              <strong>把常用网站变成 App</strong>
-              <p>添加下面的当前页面，或在 Chrome 里固定一个标签，它就会出现在这里。</p>
+              <strong>{t("emptyTitle")}</strong>
+              <p>{t("emptyBody")}</p>
             </section>
           ) : (
             <div
@@ -584,7 +585,7 @@ export function App() {
                   onPointerDown={onTilePointerDown(favorite)}
                 />
               ))}
-              {query && visible.length === 0 && <p class="no-match">没有匹配“{query}”的应用</p>}
+              {query && visible.length === 0 && <p class="no-match">{t("noMatch", { query })}</p>}
             </div>
           )}
 
@@ -592,8 +593,8 @@ export function App() {
             <DetailStrip
               favorite={detailFavorite}
               brand={brandOf(detailFavorite)}
-              onSleep={() => void run(() => favoriteApi.sleepRuntime(detailFavorite.id), { success: "已休眠，点击即可唤醒" })}
-              onClose={() => void run(() => favoriteApi.closeRuntime(detailFavorite.id), { success: "页面已关闭，入口保留" })}
+              onSleep={() => void run(() => favoriteApi.sleepRuntime(detailFavorite.id), { success: t("slept") })}
+              onClose={() => void run(() => favoriteApi.closeRuntime(detailFavorite.id), { success: t("pageClosed") })}
               onMenu={(x, y) => setMenu({ favoriteId: detailFavorite.id, x, y })}
             />
           )}
@@ -601,7 +602,7 @@ export function App() {
           {noAccess.length > 0 && (
             <Banner>
               <span>
-                Chrome 未允许访问 {noAccess.join("、")}，链接分流不会生效
+                {t("noAccess", { sites: noAccess.join(t("listSeparator")) })}
               </span>
               <button
                 type="button"
@@ -610,23 +611,23 @@ export function App() {
                   void favoriteApi.requestSiteAccess(noAccess).then(({ granted, error }) => {
                     if (granted) {
                       setNoAccess([]);
-                      showToast("已允许，链接分流立即生效");
+                      showToast(t("accessGranted"));
                     } else {
-                      showToast(error ? `Chrome 拒绝了请求：${error}` : "Chrome 没有授予访问权限", { error: true });
+                      showToast(error ? t("accessDenied", { error }) : t("accessNotGranted"), { error: true });
                     }
                   });
                 }}
               >
-                允许
+                {t("allow")}
               </button>
             </Banner>
           )}
 
           {strays > 0 && (
             <Banner>
-              <span>发现 {strays} 个空白固定标签，可能是旧版本留下的</span>
-              <button type="button" class="text-btn" onClick={() => void favoriteApi.closeStrayBlanks().then((count) => { setStrays(0); showToast(`已关闭 ${count} 个空白标签`); })}>
-                关闭它们
+              <span>{t("blanksFound", { count: strays })}</span>
+              <button type="button" class="text-btn" onClick={() => void favoriteApi.closeStrayBlanks().then((count) => { setStrays(0); showToast(t("blanksClosed", { count })); })}>
+                {t("closeThem")}
               </button>
             </Banner>
           )}
@@ -643,7 +644,7 @@ export function App() {
           items={menuFavorite ? favoriteMenu(menuFavorite) : metaMenu()}
           x={menu.x}
           y={menu.y}
-          label={menuFavorite ? `管理 ${displayName(menuFavorite)}` : "诊断与快捷键"}
+          label={menuFavorite ? t("manage", { name: displayName(menuFavorite) }) : t("metaTitle")}
           rootRef={rootRef}
           onClose={() => setMenu(undefined)}
         />

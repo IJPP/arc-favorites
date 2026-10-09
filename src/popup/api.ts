@@ -12,6 +12,7 @@ import type {
   UpdateFavoriteInput,
 } from "../core/types";
 import { opensSameSiteInNewTabByDefault, permissionPatternsForSite, siteKeyForUrl } from "../core/url";
+import { t } from "../core/i18n";
 
 const hasExtensionRuntime = Boolean(globalThis.chrome?.runtime?.id);
 
@@ -112,7 +113,7 @@ function handleMockMessage(message: ClientMessage): unknown {
       break;
     case "sleep-runtime": {
       const favorite = mockSnapshot.favorites.find((item) => item.id === message.favoriteId);
-      if (favorite?.active || favorite?.runtime?.audible) throw new FavoritesError("tab-in-use", "请先切换到其他标签并暂停播放，再让它休眠");
+      if (favorite?.active || favorite?.runtime?.audible) throw new FavoritesError("tab-in-use", t("errTabInUse"));
       patchMock(message.favoriteId, (item) => item.runtime ? { ...item, runtime: { ...item.runtime, discarded: true } } : item);
       break;
     }
@@ -161,7 +162,7 @@ async function send<T = AppSnapshot>(message: ClientMessage): Promise<T> {
   if (!response?.ok) {
     throw new FavoritesError(
       response?.error?.code ?? "no-response",
-      response?.error?.message ?? "后台没有响应，请重新加载扩展",
+      response?.error?.message ?? t("errNoResponse"),
     );
   }
   return response.data;

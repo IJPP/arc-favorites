@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export class FavoritesError extends Error {
   constructor(
     public readonly code: string,
@@ -9,5 +11,5 @@ export class FavoritesError extends Error {
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "发生了未知错误";
+  return error instanceof Error ? error.message : t("errUnknown");
 }

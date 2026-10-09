@@ -1,6 +1,7 @@
 import { cleanDeclaredName } from "./names";
 import type { BrowserPort, BrowserTab, Logger } from "./types";
 import { isSupportedPage, permissionPatternsForSite } from "./url";
+import { t } from "./i18n";
 
 const COMMIT_POLL_MS = 150;
 const COMMIT_TIMEOUT_MS = 6_000;
@@ -237,7 +238,7 @@ export function installGuardInPage(siteKey: string, favoriteHosts: string[], sam
   );
 }
 
-export function showSwitchHintInPage(): void {
+export function showSwitchHintInPage(message: string): void {
   const marker = "__arcFavoritesSwitchHint";
   document.getElementById(marker)?.remove();
 
@@ -259,7 +260,7 @@ export function showSwitchHintInPage(): void {
   ].join(";");
 
   const pill = document.createElement("div");
-  pill.textContent = "已切换到已有 Favorite";
+  pill.textContent = message;
   pill.style.cssText = [
     "display: flex",
     "align-items: center",
@@ -372,7 +373,7 @@ export class ChromeBrowserPort implements BrowserPort {
       // the resulting onUpdated(discarded) event refreshes the runtime.
       void this.discardOnceCommitted(created.id, url);
     }
-    if (!finalTab) throw new Error("Chrome 没有返回新建标签的信息");
+    if (!finalTab) throw new Error(t("errNoTab"));
     return finalTab;
   }
 
@@ -516,7 +517,7 @@ export class ChromeBrowserPort implements BrowserPort {
         : {}),
     });
     const tab = created ? fromChromeTab(created, url) : undefined;
-    if (!tab) throw new Error("Chrome 没有返回新建标签的信息");
+    if (!tab) throw new Error(t("errNoTab"));
     return tab;
   }
 
@@ -548,6 +549,7 @@ export class ChromeBrowserPort implements BrowserPort {
       await chrome.scripting.executeScript({
         target: { tabId },
         func: showSwitchHintInPage,
+        args: [t("switchHint")],
       });
     } catch {
       // Restricted pages and pages that are still navigating cannot be injected.

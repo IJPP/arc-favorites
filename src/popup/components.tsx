@@ -5,6 +5,7 @@ import { siteKeyForUrl } from "../core/url";
 import type { CurrentTabContext, FavoriteView, UpdateFavoriteInput } from "../core/types";
 import { favoriteApi } from "./api";
 import { displayName, displayUrl, favoriteState, shortState, tileState } from "./view";
+import { t } from "../core/i18n";
 
 export const SPRING =
   "linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.9%, 1)";
@@ -127,7 +128,7 @@ export function Tile(props: {
         type="button"
         class="more"
         tabIndex={-1}
-        aria-label={`管理 ${name}`}
+        aria-label={t("manage", { name })}
         aria-haspopup="menu"
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
@@ -159,20 +160,20 @@ export function DetailStrip(props: {
     <div class="detail" data-state={state} style={{ "--brand": props.brand }} aria-live="polite">
       <span class="dot" aria-hidden="true" />
       <div class="meta" key={favorite.id}>
-        <strong>{displayName(favorite)}{favorite.active && live ? <em> · 当前</em> : null}</strong>
+        <strong>{displayName(favorite)}{favorite.active && live ? <em> · {t("current")}</em> : null}</strong>
         <small>{favoriteState(favorite)} · {displayUrl(url)}</small>
       </div>
-      <button type="button" class="icon-btn" title={canSleep ? "休眠，保留入口" : "当前页面或正在播放时不能休眠"} aria-label="休眠" disabled={!canSleep} onClick={props.onSleep}>
+      <button type="button" class="icon-btn" title={canSleep ? t("sleepTitle") : t("sleepBlocked")} aria-label={t("sleep")} disabled={!canSleep} onClick={props.onSleep}>
         <Icon name="moon" />
       </button>
-      <button type="button" class="icon-btn" title="关闭页面，保留入口" aria-label="关闭页面" disabled={!live} onClick={props.onClose}>
+      <button type="button" class="icon-btn" title={t("closePageTitle")} aria-label={t("closePage")} disabled={!live} onClick={props.onClose}>
         <Icon name="close" />
       </button>
       <button
         type="button"
         class="icon-btn"
-        title="更多"
-        aria-label={`管理 ${displayName(favorite)}`}
+        title={t("more")}
+        aria-label={t("manage", { name: displayName(favorite) })}
         aria-haspopup="menu"
         onClick={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
@@ -205,7 +206,7 @@ export function ContextCard(props: {
     return (
       <div class="ctx is-quiet">
         <span class="ctx-icon">{pageIcon}</span>
-        <div class="meta"><strong>{context.title || "浏览器页面"}</strong><small>浏览器自带页面不能加入 Favorites</small></div>
+        <div class="meta"><strong>{context.title || t("browserPage")}</strong><small>{t("browserPageNote")}</small></div>
       </div>
     );
   }
@@ -214,17 +215,17 @@ export function ContextCard(props: {
     return context.atHome ? (
       <div class="ctx is-own">
         <span class="ctx-icon">{pageIcon}</span>
-        <div class="meta"><strong>正在使用 {name}</strong><small>这个标签就是它的 Favorite</small></div>
-        <button type="button" class="pill tonal" onClick={() => props.onAction("edit")}>编辑</button>
+        <div class="meta"><strong>{t("usingNow", { name })}</strong><small>{t("usingNowNote")}</small></div>
+        <button type="button" class="pill tonal" onClick={() => props.onAction("edit")}>{t("edit")}</button>
       </div>
     ) : (
       <div class="ctx is-own">
         <span class="ctx-icon">{pageIcon}</span>
-        <div class="meta"><strong>已离开初始页面</strong><small>{displayUrl(context.url ?? "")}</small></div>
-        <button type="button" class="icon-btn" title="回到初始页面" aria-label="回到初始页面" disabled={props.busy} onClick={() => props.onAction("home")}>
+        <div class="meta"><strong>{t("leftHome")}</strong><small>{displayUrl(context.url ?? "")}</small></div>
+        <button type="button" class="icon-btn" title={t("backHome")} aria-label={t("backHome")} disabled={props.busy} onClick={() => props.onAction("home")}>
           <Icon name="home" />
         </button>
-        <button type="button" class="pill tonal" disabled={props.busy} onClick={() => props.onAction("set-home")}>设为初始页</button>
+        <button type="button" class="pill tonal" disabled={props.busy} onClick={() => props.onAction("set-home")}>{t("setHome")}</button>
       </div>
     );
   }
@@ -232,8 +233,8 @@ export function ContextCard(props: {
     return (
       <div class="ctx is-own">
         <span class="ctx-icon">{pageIcon}</span>
-        <div class="meta"><strong>{displayName(favorite)} 已在 Favorites</strong><small>这是同一网站的另一个标签</small></div>
-        <button type="button" class="pill tonal" disabled={props.busy} onClick={() => props.onAction("switch")}>切换过去</button>
+        <div class="meta"><strong>{t("alreadyFavorite", { name: displayName(favorite) })}</strong><small>{t("sameSiteNote")}</small></div>
+        <button type="button" class="pill tonal" disabled={props.busy} onClick={() => props.onAction("switch")}>{t("switchTo")}</button>
       </div>
     );
   }
@@ -244,10 +245,10 @@ export function ContextCard(props: {
       <span class="ctx-icon">{pageIcon}</span>
       <div class="meta">
         <strong>{name}</strong>
-        <small>{full ? `已满 ${props.max} 个，先移除一个` : `${displayUrl(context.url ?? "")} · 当前页面`}</small>
+        <small>{full ? t("listFull", { max: props.max }) : `${displayUrl(context.url ?? "")} · ${t("currentPage")}`}</small>
       </div>
       <button type="button" class="pill" disabled={full || props.busy} onClick={() => props.onAction("add")}>
-        <Icon name="plus" />添加
+        <Icon name="plus" />{t("add")}
       </button>
     </div>
   );
@@ -418,7 +419,7 @@ export function Editor(props: {
     try {
       await props.onSave({ customTitle: name, customIcon: emoji, homeUrl, guardEnabled: guard, sameSiteInNewTab: appHome });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "保存失败");
+      setError(failure instanceof Error ? failure.message : t("saveFailed"));
       setSaving(false);
     }
   };
@@ -435,7 +436,7 @@ export function Editor(props: {
           props.onClose();
         }
       }}
-      aria-label={`编辑 ${displayName(favorite)}`}
+      aria-label={t("editTitle", { name: displayName(favorite) })}
     >
       <header class="editor-head">
         <span class="editor-icon">
@@ -449,29 +450,29 @@ export function Editor(props: {
             value={name}
             placeholder={autoName}
             maxLength={120}
-            aria-label="名称"
+            aria-label={t("name")}
             onInput={(event) => setName(event.currentTarget.value)}
           />
-          <small>{name ? "自定义名称 · 清空即恢复网站名" : "使用网站自己的名称"}</small>
+          <small>{name ? t("nameCustom") : t("nameAuto")}</small>
         </div>
-        <button type="button" class="icon-btn" aria-label="关闭" title="关闭 (Esc)" onClick={props.onClose}>
+        <button type="button" class="icon-btn" aria-label={t("close")} title={t("closeEsc")} onClick={props.onClose}>
           <Icon name="close" />
         </button>
       </header>
 
       <label class="field">
-        <span>图标</span>
+        <span>{t("icon")}</span>
         <input
           class="text-input"
           value={emoji}
-          placeholder="留空使用网站图标，或输入一个 Emoji"
+          placeholder={t("iconPlaceholder")}
           maxLength={32}
           onInput={(event) => setEmoji(event.currentTarget.value)}
         />
       </label>
 
       <label class="field">
-        <span>初始页面</span>
+        <span>{t("startPage")}</span>
         <span class="input-row">
           <input
             class="text-input"
@@ -481,20 +482,20 @@ export function Editor(props: {
             onInput={(event) => setHomeUrl(event.currentTarget.value)}
           />
           {canUseCurrent && (
-            <button type="button" class="text-btn" title={currentUrl} onClick={() => setHomeUrl(currentUrl!)}>用当前页</button>
+            <button type="button" class="text-btn" title={currentUrl} onClick={() => setHomeUrl(currentUrl!)}>{t("useCurrent")}</button>
           )}
         </span>
       </label>
 
       <label class="switch-row">
         <span>
-          <strong>其他网站的链接另开标签</strong>
+          <strong>{t("guardTitle")}</strong>
           <small>
             {guard
               ? appHome
-                ? "开：去其他网站的链接在新的普通标签打开"
-                : `开：${siteLabel} 内的链接留在这里，去其他网站的链接在新的普通标签打开`
-              : "关：所有链接都在这个标签里打开，和普通网页一样"}
+                ? t("guardOnAppHome")
+                : t("guardOn", { site: siteLabel })
+              : t("guardOff")}
           </small>
         </span>
         <input type="checkbox" role="switch" class="switch" checked={guard} onChange={(event) => setGuard(event.currentTarget.checked)} />
@@ -502,13 +503,13 @@ export function Editor(props: {
 
       <label class={`switch-row${guard ? "" : " is-disabled"}`}>
         <span>
-          <strong>站内链接也开新标签</strong>
+          <strong>{t("appHomeTitle")}</strong>
           <small>
             {!guard
-              ? "需要先打开上面的开关"
+              ? t("appHomeNeedsGuard")
               : appHome
-                ? "开：像 App 主页一样，点开视频、文章会进入新标签，这里停在原处"
-                : `关：在 ${siteLabel} 内点链接，就在这个标签里继续浏览`}
+                ? t("appHomeOn")
+                : t("appHomeOff", { site: siteLabel })}
           </small>
         </span>
         <input type="checkbox" role="switch" class="switch" disabled={!guard} checked={guard && appHome} onChange={(event) => setAppHome(event.currentTarget.checked)} />
@@ -522,11 +523,11 @@ export function Editor(props: {
           class={`danger-btn${confirmRemove ? " is-armed" : ""}`}
           onClick={() => confirmRemove ? props.onRemove() : setConfirmRemove(true)}
         >
-          <Icon name="trash" />{confirmRemove ? "再点一次移除" : "移除"}
+          <Icon name="trash" />{confirmRemove ? t("removeConfirm") : t("remove")}
         </button>
         <span class="spacer" />
-        <button type="button" class="pill tonal" onClick={props.onClose}>取消</button>
-        <button type="submit" class="pill" disabled={saving}>{saving ? "保存中…" : "保存"}</button>
+        <button type="button" class="pill tonal" onClick={props.onClose}>{t("cancel")}</button>
+        <button type="submit" class="pill" disabled={saving}>{saving ? t("saving") : t("save")}</button>
       </footer>
     </form>
   );

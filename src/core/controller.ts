@@ -22,6 +22,7 @@ import {
   normalizeWebUrl,
   siteKeyForUrl,
 } from "./url";
+import { t } from "./i18n";
 
 interface ControllerOptions {
   now?: () => number;
@@ -106,14 +107,14 @@ export class FavoriteController {
     await this.serialize(async () => {
       const tab = input.tab ?? (await this.browser.getActiveTab());
       if (!tab || !isSupportedPage(tab.url)) {
-        throw new FavoritesError("unsupported-page", "当前页面不能添加为 Favorite");
+        throw new FavoritesError("unsupported-page", t("errUnsupportedPage"));
       }
 
       const favorites = sortFavorites(await this.store.loadFavorites());
       const runtimes = await this.store.loadRuntimes();
       const managed = Object.values(runtimes).find((runtime) => runtime.tabId === tab.id);
       if (managed) {
-        throw new FavoritesError("already-favorite", "当前标签已经是 Favorite");
+        throw new FavoritesError("already-favorite", t("errAlreadyFavorite"));
       }
 
       const identity = favoriteIdentityForUrl(tab.url);
@@ -137,7 +138,7 @@ export class FavoriteController {
         // registering the site twice.
         outcome = "adopted";
         const pinnedTab = await this.browser.updateTab(tab.id, { pinned: true });
-        if (!pinnedTab?.pinned) throw new FavoritesError("pin-failed", "Chrome 无法固定这个标签，请重新打开页面后再试");
+        if (!pinnedTab?.pinned) throw new FavoritesError("pin-failed", t("errPinFailed"));
         const index = favorites.findIndex((favorite) => favorite.id === existing.id);
         favorites[index] = {
           ...existing,
@@ -175,7 +176,7 @@ export class FavoriteController {
       };
 
       const pinnedTab = await this.browser.updateTab(tab.id, { pinned: true });
-      if (!pinnedTab?.pinned) throw new FavoritesError("pin-failed", "Chrome 无法固定这个标签，请重新打开页面后再试");
+      if (!pinnedTab?.pinned) throw new FavoritesError("pin-failed", t("errPinFailed"));
       favorites.push(favorite);
       runtimes[favorite.id] = this.runtimeFromTab(favorite.id, pinnedTab);
       await Promise.all([
@@ -250,11 +251,11 @@ export class FavoriteController {
       const tab = runtime ? await this.browser.getTab(runtime.tabId) : undefined;
       if (!tab?.pinned || tab.discarded) return;
       if (tab.active || tab.audible) {
-        throw new FavoritesError("tab-in-use", "请先切换到其他标签并暂停播放，再让这个 Favorite 休眠");
+        throw new FavoritesError("tab-in-use", t("errTabInUse"));
       }
       const discarded = await this.browser.discardTab(tab.id);
       if (!discarded?.discarded) {
-        throw new FavoritesError("discard-failed", "Chrome 暂时无法休眠这个标签，请稍后再试");
+        throw new FavoritesError("discard-failed", t("errDiscardFailed"));
       }
       runtimes[favoriteId] = this.runtimeFromTab(favoriteId, discarded);
       await this.store.saveRuntimes(runtimes);
@@ -302,12 +303,12 @@ export class FavoriteController {
     await this.serialize(async () => {
       const favorites = await this.store.loadFavorites();
       const index = favorites.findIndex((favorite) => favorite.id === favoriteId);
-      if (index < 0) throw new FavoritesError("not-found", "找不到这个 Favorite");
+      if (index < 0) throw new FavoritesError("not-found", t("errNotFound"));
       const runtimes = await this.store.loadRuntimes();
       const runtime = runtimes[favoriteId];
       const tab = runtime ? await this.browser.getTab(runtime.tabId) : undefined;
       if (!tab || !isSupportedPage(tab.url)) {
-        throw new FavoritesError("not-running", "请先打开这个 Favorite");
+        throw new FavoritesError("not-running", t("errNotRunning"));
       }
 
       const current = favorites[index]!;
@@ -319,7 +320,7 @@ export class FavoriteController {
             position !== index && favoriteIdentityForUrl(favorite.homeUrl) === nextIdentity,
         )
       ) {
-        throw new FavoritesError("site-already-favorite", "这个站点已经是 Favorite 了");
+        throw new FavoritesError("site-already-favorite", t("errSiteExists"));
       }
       favorites[index] = {
         ...current,
@@ -341,7 +342,7 @@ export class FavoriteController {
     await this.serialize(async () => {
       const favorites = await this.store.loadFavorites();
       const index = favorites.findIndex((favorite) => favorite.id === favoriteId);
-      if (index < 0) throw new FavoritesError("not-found", "找不到这个 Favorite");
+      if (index < 0) throw new FavoritesError("not-found", t("errNotFound"));
 
       const updated = updateFavorite(favorites[index]!, changes);
       const updatedIdentity = favoriteIdentityForUrl(updated.homeUrl);
@@ -351,7 +352,7 @@ export class FavoriteController {
             position !== index && favoriteIdentityForUrl(favorite.homeUrl) === updatedIdentity,
         )
       ) {
-        throw new FavoritesError("site-already-favorite", "这个站点已经是 Favorite 了");
+        throw new FavoritesError("site-already-favorite", t("errSiteExists"));
       }
       favorites[index] = updated;
       await this.store.saveFavorites(favorites);
@@ -377,7 +378,7 @@ export class FavoriteController {
         (favorite, order) => ({ ...favorite, order }),
       );
       if (remaining.length === favorites.length) {
-        throw new FavoritesError("not-found", "找不到这个 Favorite");
+        throw new FavoritesError("not-found", t("errNotFound"));
       }
 
       if (runtime) {
@@ -385,7 +386,7 @@ export class FavoriteController {
         if (tab?.pinned) {
           const unpinned = await this.browser.updateTab(runtime.tabId, { pinned: false });
           if (!unpinned && await this.browser.getTab(runtime.tabId)) {
-            throw new FavoritesError("unpin-failed", "Chrome 无法取消固定，请稍后再试");
+            throw new FavoritesError("unpin-failed", t("errUnpinFailed"));
           }
         }
         await this.browser.disableLinkGuard(runtime.tabId);
@@ -843,11 +844,11 @@ export class FavoriteController {
   async openExternal(url: string, senderTab: BrowserTab | undefined, sameSite = false): Promise<"opened" | "navigate"> {
     return this.serialize(async () => {
       if (!senderTab || !isSupportedPage(url)) {
-        throw new FavoritesError("invalid-external-link", "无法打开这个外部链接");
+        throw new FavoritesError("invalid-external-link", t("errInvalidLink"));
       }
       const runtimes = await this.store.loadRuntimes();
       const runtime = Object.values(runtimes).find((item) => item.tabId === senderTab.id);
-      if (!runtime) throw new FavoritesError("unmanaged-tab", "该页面不是受管理的 Favorite");
+      if (!runtime) throw new FavoritesError("unmanaged-tab", t("errUnmanagedTab"));
       const favorite = this.requireFavorite(await this.store.loadFavorites(), runtime.favoriteId);
       // The guard follows the page that is actually displayed, so links within
       // that page's own site keep navigating in place even after the Favorite
@@ -873,12 +874,12 @@ export class FavoriteController {
   ): Promise<"navigate" | "handled"> {
     return this.serialize(async () => {
       if (!senderTab || !isSupportedPage(url)) {
-        throw new FavoritesError("invalid-external-link", "无法打开这个外部链接");
+        throw new FavoritesError("invalid-external-link", t("errInvalidLink"));
       }
       const favorites = sortFavorites(await this.store.loadFavorites());
       const runtimes = await this.store.loadRuntimes();
       const runtime = Object.values(runtimes).find((item) => item.tabId === senderTab.id);
-      if (!runtime) throw new FavoritesError("unmanaged-tab", "该页面不是受管理的 Favorite");
+      if (!runtime) throw new FavoritesError("unmanaged-tab", t("errUnmanagedTab"));
       const senderFavorite = this.requireFavorite(favorites, runtime.favoriteId);
       const destinationIdentity = favoriteIdentityForUrl(url);
       if (destinationIdentity === favoriteIdentityForUrl(senderFavorite.homeUrl)) {
@@ -1003,7 +1004,7 @@ export class FavoriteController {
 
   private requireFavorite(favorites: Favorite[], favoriteId: string): Favorite {
     const favorite = favorites.find((item) => item.id === favoriteId);
-    if (!favorite) throw new FavoritesError("not-found", "找不到这个 Favorite");
+    if (!favorite) throw new FavoritesError("not-found", t("errNotFound"));
     return favorite;
   }
 

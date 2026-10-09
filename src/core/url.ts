@@ -1,5 +1,6 @@
 import { getDomain } from "tldts";
 import { FavoritesError } from "./errors";
+import { t } from "./i18n";
 
 export function normalizeWebUrl(value: string): string {
   const trimmed = value.trim();
@@ -8,15 +9,15 @@ export function normalizeWebUrl(value: string): string {
   try {
     url = new URL(trimmed);
   } catch {
-    throw new FavoritesError("invalid-url", "请输入完整的 http 或 https 网址");
+    throw new FavoritesError("invalid-url", t("errInvalidUrl"));
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new FavoritesError("unsupported-url", "只能将 http 或 https 页面添加为 Favorite");
+    throw new FavoritesError("unsupported-url", t("errUnsupportedUrl"));
   }
 
   if (url.username || url.password) {
-    throw new FavoritesError("url-credentials-not-allowed", "网址不能包含用户名或密码");
+    throw new FavoritesError("url-credentials-not-allowed", t("errUrlCredentials"));
   }
 
   return url.toString();

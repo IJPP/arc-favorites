@@ -529,6 +529,7 @@ describe("switch hint", () => {
     expect(executeScript).toHaveBeenCalledWith({
       target: { tabId: 42 },
       func: showSwitchHintInPage,
+      args: ["已切换到已有 Favorite"],
     });
     expect(setBadgeBackgroundColor).toHaveBeenCalledWith({ color: "#1a73e8" });
     expect(setBadgeText).toHaveBeenCalledWith({ text: "↗" });

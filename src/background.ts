@@ -4,6 +4,7 @@ import { errorMessage, FavoritesError } from "./core/errors";
 import { ChromeFavoriteStore } from "./core/storage";
 import { appendLog, readLog } from "./core/log";
 import type { ClientMessage, Diagnostics, MessageResponse } from "./core/types";
+import { t } from "./core/i18n";
 
 const ADD_CURRENT_MENU = "arc-favorites-add-current";
 const SESSION_READY_KEY = "arcFavorites.sessionReady.v1";
@@ -53,7 +54,7 @@ async function setupMenus(): Promise<void> {
   await chrome.contextMenus.removeAll();
   chrome.contextMenus.create({
     id: ADD_CURRENT_MENU,
-    title: "加入 Favorites（固定标签页）",
+    title: t("menuAddCurrent"),
     contexts: ["page"],
     documentUrlPatterns: ["http://*/*", "https://*/*"],
   });
@@ -89,7 +90,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       setTimeout(() => {
         void Promise.all([
           chrome.action.setBadgeText({ tabId: converted.id, text: "" }),
-          chrome.action.setTitle({ tabId: converted.id, title: "Bow" }),
+          chrome.action.setTitle({ tabId: converted.id, title: chrome.i18n.getMessage("actionTitle") || "Bow" }),
         ]).catch(() => undefined);
       }, 5_000);
       throw error;
@@ -168,7 +169,7 @@ async function handleMessage(message: ClientMessage, sender: chrome.runtime.Mess
       case "route-link":
         data = await controller.routeLink(message.url, sender.tab ? fromChromeTab(sender.tab) : undefined);
         break;
-      default: throw new FavoritesError("unknown-message", "无法识别该操作");
+      default: throw new FavoritesError("unknown-message", t("errUnknownMessage"));
     }
     const readOnly = ["get-state", "get-context", "get-diagnostics", "count-stray-blanks", "open-external"];
     if (!readOnly.includes(message.type)) void broadcastStateChanged();
@@ -184,7 +185,7 @@ async function handleMessage(message: ClientMessage, sender: chrome.runtime.Mess
 chrome.runtime.onMessage.addListener((message: ClientMessage | { type: string }, sender, sendResponse) => {
   if (message?.type === "state-changed") return false;
   if (sender.id !== chrome.runtime.id) {
-    sendResponse({ ok: false, error: { code: "unauthorized-sender", message: "已拒绝非扩展来源的消息" } } satisfies MessageResponse<never>);
+    sendResponse({ ok: false, error: { code: "unauthorized-sender", message: t("errUnauthorized") } } satisfies MessageResponse<never>);
     return false;
   }
   void handleMessage(message as ClientMessage, sender).then(sendResponse);

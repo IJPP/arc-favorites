@@ -1,135 +1,142 @@
 # Bow
 
-把常用网站变成 App：一个 Manifest V3 扩展，用 Chrome **原生固定标签**实现 Arc 式的 Favorites。固定一次，入口就一直在标签栏（或 Vertical Tabs）最上方；关掉、重启都会回来，点开永远是同一个实例。
+**English** · [简体中文](README.zh-CN.md)
+
+Turn your everyday sites into apps. Bow is a Manifest V3 extension that brings Arc-style Favorites to Chrome using Chrome's own **pinned tabs**. Pin a site once and it stays at the top of your tab strip (or Vertical Tabs). It comes back after you close it or restart Chrome, and clicking it always takes you to the same tab.
 
 <p align="center">
-  <img src="docs/screenshots/popup-light.png" width="360" alt="浅色模式下的 Favorites 弹窗：六个应用方块、详情条和当前页面卡片">
-  <img src="docs/screenshots/popup-dark.png" width="360" alt="深色模式下的 Favorites 弹窗">
+  <img src="docs/screenshots/popup-en-light.png" width="360" alt="Bow popup in light mode: six app tiles, a detail strip and a card for the current page">
+  <img src="docs/screenshots/popup-en-dark.png" width="360" alt="Bow popup in dark mode">
 </p>
 
-> 这是一个独立的个人项目，与 The Browser Company（Arc）、Zen Browser 或 Google 均无关联。“Arc”仅用于描述交互灵感。截图中的网站图标属于各自的所有者，仅作示例。
+> Bow is an independent personal project, not affiliated with The Browser Company (Arc), Zen Browser or Google. "Arc" only describes where the idea came from. Site icons in the screenshots belong to their owners and are shown as examples.
 
-## 和其他做法有什么不同
+## How it's different
 
-同类扩展大多自己画一套：另开侧栏、往网页里塞一排图标，或者干脆换个浏览器。Bow 反过来，**只用 Chrome 本来就有的东西**：
+Most extensions like this build their own UI: a separate sidebar, a row of icons injected into web pages, or a different browser altogether. Bow does the opposite and **uses only what Chrome already has**:
 
-- **入口**是原生固定标签；
-- **位置**在原生标签栏和 Vertical Tabs 里；
-- **省内存**靠 Chrome 自己的标签休眠；
-- **管理**用一个工具栏弹窗。
+- **Entries** are native pinned tabs.
+- **They live** in Chrome's own tab strip and Vertical Tabs.
+- **Memory is saved** by Chrome's own tab discarding.
+- **Management** happens in one toolbar popup.
 
-扩展只补上 Chrome 缺的那一层：记住哪些标签是“App”、保证每个只有一份、被关掉或重启后放回原位，再决定链接该在哪里打开。
+The extension only adds the layer Chrome is missing: it remembers which tabs are "apps", keeps exactly one of each, puts them back after you close them or restart, and decides where links should open.
 
-这样做的好处：
-- **代价最小**：没有常驻侧栏占地方，不改网页样式，也不依赖 Chrome 内部 UI。Chrome 更新标签栏后，它跟着变好看，不会跟着坏。
-- **随时能撤**：卸载后留下的就是普通固定标签，什么都不会丢。
+What you get:
+- **Minimal cost.** No permanent sidebar taking up space, no restyled pages, no reliance on Chrome internals. When Chrome redesigns its tab strip, Bow gets the new look instead of breaking.
+- **Nothing to undo.** Uninstall it and you're left with ordinary pinned tabs; nothing is lost.
 
-代价是外观上做不到和 Arc 一模一样（见[已知限制](#已知限制)），换来的是用最小代价拿到 Arc Favorites 最核心的体验：常用网站像 App 一样常驻、唯一、随叫随到。
+The trade-off is that it can't look exactly like Arc (see [Known limitations](#known-limitations)). In return you get the core of Arc Favorites at the lowest possible cost: your everyday sites stay put like apps, exist exactly once, and are always one click away.
 
-## 功能
+## Features
 
-- **原生固定标签就是入口。** 不加侧栏、不改网页，入口出现在 Chrome 自己的标签栏和 Vertical Tabs 里。
-- **单实例。** 每个 Favorite 全局只有一个标签：点击就切过去，跨窗口也一样；已休眠的会从上次的网址恢复。
-- **关不掉的入口。** `Cmd/Ctrl+W` 关闭后，入口会在原窗口后台补回并进入休眠；Chrome 重启后自动匹配恢复，不会多出空白标签。
-- **App 主页模式。** 外站链接自动在普通标签打开，Favorite 留在原处；YouTube 默认连站内视频也开新标签，首页始终是首页（其他网站可在编辑面板开启）。
-- **好用的管理弹窗。**
-  - 打开即可打字筛选，`1–9` 直达；
-  - 网格随数量自适应，每个应用标明状态（当前、运行中、播放中、已休眠、加载中、未打开）；
-  - 底部卡片跟随当前页面：添加新网站、回到初始页、把当前页设为初始页；
-  - 拖动排序会同步到原生标签。
-- **自动取名。** 优先使用网站声明的应用名，其次清洗标题：“首页-个性推荐-哔哩哔哩”显示为“哔哩哔哩”。
-- **深浅色、键盘操作、读屏器和“减少动态效果”** 都已适配。
+- **Pinned tabs are the entries.** No sidebar and no changes to web pages. Your entries appear in Chrome's own tab strip and Vertical Tabs.
+- **One tab per app.** Each Favorite has exactly one tab across all windows. Clicking switches to it, even across windows; a sleeping one resumes where you left off.
+- **Entries that don't go away.** Close one with `Cmd/Ctrl+W` and it comes back in the background, asleep, in the same window. After a restart, Bow matches the tabs Chrome restored instead of adding blank ones.
+- **App-home mode.** Links to other sites open in a normal tab while the Favorite stays put. On YouTube, in-site videos open in new tabs too, so the home feed stays the home feed (turn this on for any site in the editor).
+- **A popup that's quick to use.**
+  - Start typing to filter; `1–9` opens an app directly.
+  - The grid adapts to how many apps you have, and each tile shows its state: current, running, playing, asleep, loading or not open.
+  - The card at the bottom follows the current page: add a new site, go back home, or make this page the home page.
+  - Drag to reorder; the order syncs to your pinned tabs.
+- **Automatic names.** Bow uses the name a site declares for itself, or cleans up the page title: "首页-个性推荐-哔哩哔哩" becomes "哔哩哔哩".
+- **English and Chinese.** Follows Chrome's UI language; anything other than Chinese gets English.
+- **Light and dark mode, keyboard, screen readers and reduced motion** are all supported.
 
-## 安装
+## Install
 
-1. 从 [Releases](https://github.com/IJPP/bow/releases/latest) 下载 `bow-v*.zip` 并解压（或克隆本仓库，使用其中已构建好的 **`dist`** 文件夹）。
-2. 打开 `chrome://extensions/`，开启右上角“开发者模式”，点“加载已解压的扩展程序”，选择解压出的文件夹。
-3. 建议把 Favorites 固定到工具栏，快捷键 `Cmd/Ctrl+Shift+Y` 打开弹窗。
+1. Download `bow-v*.zip` from [Releases](https://github.com/IJPP/bow/releases/latest) and unzip it (or clone this repo and use the prebuilt **`dist`** folder).
+2. Open `chrome://extensions/`, turn on **Developer mode** in the top right, click **Load unpacked** and choose the unzipped folder.
+3. Pin Bow to the toolbar. `Cmd/Ctrl+Shift+Y` opens the popup.
 
-升级时在扩展卡片上点“重新加载”即可，数据会保留。
+To upgrade, replace the folder and click **Reload** on the extension's card. Your data is kept.
 
-## 使用
+## Usage
 
-- **添加**：在标签上右键“固定标签页”，或在网页右键“加入 Favorites”，或在弹窗底部点“添加”。
-- **打开 / 切换**：点弹窗里的图标，或按 `1–9`。
-- **管理**：悬停图标出现 `⋮`，也可以右键或用详情条，可以休眠、关闭页面、回到初始页、编辑、移除。
-- **移除**：在 Chrome 里取消固定，或在弹窗里移除（页面保留为普通标签）。
+- **Add:** right-click a tab and choose **Pin**, right-click a page and choose **Add to Favorites**, or click **Add** at the bottom of the popup.
+- **Open or switch:** click an icon in the popup, or press `1–9`.
+- **Manage:** hover an icon for `⋮`, right-click it, or use the detail strip to sleep, close the page, go back home, edit or remove.
+- **Remove:** unpin the tab in Chrome, or remove it in the popup (the page stays as a normal tab).
 
-每个网站（按主机名，`www.` 视为相同）最多一个 Favorite，总数最多 12 个。
+You can have one Favorite per site (by hostname; `www.` is ignored) and up to 12 in total.
 
-| 操作 | 结果 |
+| Action | Result |
 | --- | --- |
-| 点击 Favorite | 切到已有实例；休眠则恢复；未打开则从初始网址新建 |
-| 休眠 | 释放内存，保留固定入口和当前网址 |
-| 关闭页面 | 关掉标签，保留 Favorite；下次从初始网址打开 |
-| `Cmd/Ctrl+W` | 后台补回入口并休眠，不抢焦点 |
-| 关闭整个窗口 | 保留定义，不重新弹出窗口 |
+| Click a Favorite | Switches to its tab; wakes it if asleep; opens it from its home page if closed |
+| Sleep | Frees memory and keeps the pinned entry and current address |
+| Close page | Closes the tab but keeps the Favorite; it reopens from its home page |
+| `Cmd/Ctrl+W` | Restores the entry in the background, asleep, without stealing focus |
+| Close the whole window | Keeps the Favorite and doesn't reopen the window |
 
-### 键盘
+### Keyboard
 
-| 按键 | 作用 |
+| Key | Action |
 | --- | --- |
-| 直接打字 | 筛选 |
-| `1–9` | 打开对应位置 |
-| 方向键 / `Enter` | 选择 / 打开 |
-| `Esc` | 清空筛选 |
-| `F2` | 编辑 |
-| `Shift+F10` | 管理菜单 |
-| `Alt+Shift+方向键` | 排序 |
+| Type | Filter |
+| `1–9` | Open that position |
+| Arrows / `Enter` | Select / open |
+| `Esc` | Clear the filter |
+| `F2` | Edit |
+| `Shift+F10` | Manage menu |
+| `Alt+Shift+Arrows` | Reorder |
 
-## 链接规则
+## Link rules
 
-只在 Favorite 自己的标签里生效：
+These apply only inside a Favorite's own tab:
 
-- **站内普通链接**留在 Favorite；网站本身要求新标签打开的链接照常开新标签。
-- **外站链接**在普通标签打开，Favorite 不动。
-- **指向另一个 Favorite 的链接**直接切到那个 Favorite，不会在当前标签打开它。
-- **开启“站内链接也开新标签”后**，站内链接一律开新标签。
-- **按住修饰键的点击、下载、表单提交、脚本跳转**保持 Chrome 默认行为。
+- **Plain links within the site** stay in the Favorite. Links the site itself opens in a new tab still open in a new tab.
+- **Links to other sites** open in a normal tab, and the Favorite stays put.
+- **Links to another Favorite** switch to that Favorite instead of loading it here.
+- **With "Open in-site links in a new tab too" on**, every in-site link opens in a new tab.
+- **Modifier-key clicks, downloads, form submissions and script navigation** keep Chrome's default behavior.
 
-## 隐私与权限
+## Privacy and permissions
 
-- **用到的权限**：`tabs`、`storage`、`contextMenus`、`scripting`、`favicon`，以及 http/https 网站访问。
-- **用途**：管理固定标签，在 Favorite 页面里安装链接规则，读取网站声明的应用名，显示 Chrome 本地缓存的网站图标。
-- **不做的事**：不读取网页正文，不联网，没有账号、统计或遥测。
-- **数据存放**：全部保存在本机 `chrome.storage`。诊断日志也只在本机，需要时从弹窗手动复制。
-- **权限被收回时**：如果在扩展详情里收紧了网站访问权限，链接规则不会生效，弹窗会提示，点“允许”即可恢复。
+- **Permissions:** `tabs`, `storage`, `contextMenus`, `scripting`, `favicon`, and access to http/https sites.
+- **What they're for:** managing pinned tabs, installing the link rules in Favorite pages, reading the name a site declares for itself, and showing icons from Chrome's local favicon cache.
+- **What Bow doesn't do:** read page content, make network requests, or use accounts, analytics or telemetry.
+- **Where data lives:** everything stays in `chrome.storage` on your device. The diagnostic log is local too; you copy it from the popup only when you need it.
+- **If site access is withdrawn:** if you restrict site access in the extension's details, link rules stop working. The popup tells you, and **Allow** turns them back on.
 
-## 已知限制
+## Known limitations
 
-- 扩展无法在 Chrome 标签栏里画一个专属的 Favorites 区域，也无法改动原生标签的样式或右键菜单。
-- 工具栏弹窗的外框和阴影由 Chrome 绘制，扩展只能设计框内的内容。
-- 扩展无法拦截 `Cmd/Ctrl+W`，只能在关闭后补回入口；休眠后唤醒会重新加载页面。
-- Favorite 是全局单实例，不像 Arc Spaces 那样在每个窗口各显示一份。
-- Arc 的 Peek 无法可靠复刻，外站链接改为在普通标签打开。
+- An extension can't draw a dedicated Favorites area in Chrome's tab strip, or change how native tabs look or what their right-click menu offers.
+- Chrome draws the toolbar popup's frame and shadow; an extension can only design what's inside it.
+- An extension can't intercept `Cmd/Ctrl+W`. Bow can only restore the entry after it closes, and waking a sleeping tab reloads the page.
+- Each Favorite is a single tab shared by all windows, unlike Arc Spaces, which show a set per window.
+- Arc's Peek can't be reproduced reliably, so links to other sites open in normal tabs.
 
-## 开发
+## Development
 
 ```bash
 npm install
-npm run dev       # 弹窗预览（示例数据），访问 Vite 输出的地址 + /popup.html
+npm run dev       # popup preview with sample data: open Vite's address + /popup.html
 npm run check     # TypeScript + Vitest
-npm run build     # 生成 dist
-npm run package   # 生成 dist 与 zip
+npm run build     # build dist
+npm run package   # build dist and the zip
 ```
 
-- **代码结构**：弹窗在 `src/popup/`（Preact），后台与领域逻辑在 `src/core/`，图标由 `scripts/generate-icons.mjs` 生成。
-- **预览参数**：`?n=0–12` 设置应用数量，`?ctx=addable|favorite|deep|unsupported` 模拟当前页面情形，`?noaccess=youtube.com` 模拟权限缺失。
-- **验证记录**：测试结果和仍需在真实 Chrome 中验证的项目见 [QA.md](QA.md)。
+- **Code layout:** the popup is in `src/popup/` (Preact), the background and domain logic in `src/core/`, UI strings in `src/core/i18n.ts`, the extension's name in `public/_locales/`, and the icon is generated by `scripts/generate-icons.mjs`.
+- **Preview parameters:** `?n=0–12` sets the number of apps, `?ctx=addable|favorite|deep|unsupported` simulates the current page, `?noaccess=youtube.com` simulates missing site access, and `?lang=en|zh` switches the language.
+- **QA:** test results and what still needs checking in real Chrome are in [QA.md](QA.md) (Chinese).
 
-## 更新记录
+## Changelog
+
+### 0.7.0
+
+- Added an English interface and made it the default: Chrome set to Chinese shows Chinese, everything else shows English. The README is now available in English too.
 
 ### 0.6.1
 
-- 改名为 Bow（原 Favorites for Chrome），不再在名字里使用 Arc。扩展 ID 和数据不变。
+- Renamed to Bow (formerly Favorites for Chrome) so the name no longer uses "Arc". The extension ID and your data are unchanged.
 
 ### 0.6.0
 
-- 弹窗用 Preact 重写，包括筛选框、自适应网格、详情条、当前页面卡片、从图标展开的编辑面板和弹簧动效。
-- 修复重启后多出 about:blank 固定标签：新标签提交后才休眠，补建前先复用遗留的空白标签，弹窗可一键清理。
-- 修复链接规则从未生效：权限检查改为分别检查 http 和 https；新增 App 主页模式，YouTube 默认开启。
-- 自动取应用名；新增本机诊断日志；重绘图标。
+- Rebuilt the popup in Preact: filter box, adaptive grid, detail strip, current-page card, an editor that expands from the tile, and spring animations.
+- Fixed extra about:blank pinned tabs after a restart: new tabs only sleep after their page commits, leftover blank tabs are reused before new ones are created, and the popup can close them in one click.
+- Fixed link rules never taking effect: site access is now checked separately for http and https. Added app-home mode, on by default for YouTube.
+- Automatic app names, a local diagnostic log, and a redrawn icon.
 
-## 许可证
+## License
 
 [MIT](LICENSE) © 2026 IJPP
