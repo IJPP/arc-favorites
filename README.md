@@ -108,3 +108,7 @@ npm run package   # 生成 dist 与 zip
 - 修复重启后多出 about:blank 固定标签：新标签提交后才休眠，补建前先复用遗留的空白标签，弹窗可一键清理。
 - 修复链接规则从未生效：权限检查改为分别检查 http 和 https；新增 App 主页模式，YouTube 默认开启。
 - 自动取应用名；新增本机诊断日志；重绘图标。
+
+## 许可证
+
+[MIT](LICENSE) © 2026 IJPP
