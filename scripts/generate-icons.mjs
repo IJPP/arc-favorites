@@ -24,40 +24,63 @@ function chunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, crc]);
 }
 
-function insideRoundedRect(x, y, size, radius) {
-  const edge = size - 1;
-  const cx = x < radius ? radius : x > edge - radius ? edge - radius : x;
-  const cy = y < radius ? radius : y > edge - radius ? edge - radius : y;
-  return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2;
+// "Pinned app": a white app tile with a dark pin in its corner, on the
+// accent squircle. Drawn on a 128-unit grid; small sizes use a bolder
+// variant without the pin's centre dot so it stays crisp at 16 px.
+const ACCENT = [59, 108, 246];
+const INK = [28, 31, 39];
+const WHITE = [255, 255, 255];
+
+function roundedRect(x, y, width, height, radius) {
+  return (u, v) => {
+    if (u < x || u > x + width || v < y || v > y + height) return false;
+    const cx = Math.min(Math.max(u, x + radius), x + width - radius);
+    const cy = Math.min(Math.max(v, y + radius), y + height - radius);
+    return (u - cx) ** 2 + (v - cy) ** 2 <= radius ** 2;
+  };
+}
+
+function disk(cx, cy, radius) {
+  return (u, v) => (u - cx) ** 2 + (v - cy) ** 2 <= radius ** 2;
+}
+
+function layers(size) {
+  const small = size <= 32;
+  const tile = small ? roundedRect(28, 42, 58, 58, 16) : roundedRect(30, 40, 56, 56, 16);
+  const pin = small
+    ? [[disk(88, 38, 24), ACCENT], [disk(88, 38, 16), INK]]
+    : [[disk(88, 38, 20.5), ACCENT], [disk(88, 38, 13.5), INK], [disk(88, 38, 5.5), WHITE]];
+  return [[roundedRect(8, 8, 112, 112, 30), ACCENT], [tile, WHITE], ...pin];
 }
 
 function makePng(size) {
   const rows = [];
-  const radius = size * 0.24;
-  const background = [36, 38, 48, 255];
-  const bars = [
-    { x: 0.25, width: 0.13, top: 0.49, color: [185, 188, 255, 255] },
-    { x: 0.435, width: 0.13, top: 0.25, color: [244, 244, 255, 255] },
-    { x: 0.62, width: 0.13, top: 0.38, color: [143, 149, 255, 255] },
-  ];
+  const shapes = layers(size);
+  const samples = 6;
 
   for (let y = 0; y < size; y += 1) {
     const row = Buffer.alloc(1 + size * 4);
     row[0] = 0;
     for (let x = 0; x < size; x += 1) {
-      let color = insideRoundedRect(x, y, size, radius) ? background : [0, 0, 0, 0];
-      for (const bar of bars) {
-        const left = size * bar.x;
-        const right = left + size * bar.width;
-        const top = size * bar.top;
-        const bottom = size * 0.76;
-        if (x >= left && x <= right && y >= top && y <= bottom) color = bar.color;
+      // Supersample each pixel so curves are antialiased.
+      let r = 0, g = 0, b = 0, covered = 0;
+      for (let sy = 0; sy < samples; sy += 1) {
+        for (let sx = 0; sx < samples; sx += 1) {
+          const u = ((x + (sx + 0.5) / samples) * 128) / size;
+          const v = ((y + (sy + 0.5) / samples) * 128) / size;
+          let color;
+          for (const [inside, fill] of shapes) if (inside(u, v)) color = fill;
+          if (!color) continue;
+          r += color[0]; g += color[1]; b += color[2]; covered += 1;
+        }
       }
       const offset = 1 + x * 4;
-      row[offset] = color[0];
-      row[offset + 1] = color[1];
-      row[offset + 2] = color[2];
-      row[offset + 3] = color[3];
+      if (covered) {
+        row[offset] = Math.round(r / covered);
+        row[offset + 1] = Math.round(g / covered);
+        row[offset + 2] = Math.round(b / covered);
+        row[offset + 3] = Math.round((covered / samples ** 2) * 255);
+      }
     }
     rows.push(row);
   }
