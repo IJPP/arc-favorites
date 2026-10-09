@@ -12,7 +12,7 @@ import type {
   UpdateFavoriteInput,
 } from "../core/types";
 import { opensSameSiteInNewTabByDefault, permissionPatternsForSite, siteKeyForUrl } from "../core/url";
-import { t } from "../core/i18n";
+import { getLocale, t } from "../core/i18n";
 
 const hasExtensionRuntime = Boolean(globalThis.chrome?.runtime?.id);
 
@@ -51,7 +51,10 @@ function mockFavorite(id: string, homeUrl: string, appName: string, state: MockS
 const previewCount = Number(new URLSearchParams(globalThis.location?.search).get("n") ?? 6);
 let mockSnapshot: AppSnapshot = { maxFavorites: 12, favorites: [] };
 const mockSeed: Array<[string, string, string, MockState]> = [
-  ["bili", "https://www.bilibili.com/", "哔哩哔哩", "running"],
+  // English previews (and store screenshots) lead with a site English readers know.
+  getLocale() === "zh"
+    ? ["bili", "https://www.bilibili.com/", "哔哩哔哩", "running"]
+    : ["bili", "https://www.reddit.com/", "Reddit", "running"],
   ["yt", "https://www.youtube.com/", "YouTube", "audible"],
   ["gmail", "https://mail.google.com/mail/u/0/#inbox", "Gmail", "sleeping"],
   ["notion", "https://www.notion.so/", "Notion", "running"],
@@ -62,7 +65,9 @@ const mockSeed: Array<[string, string, string, MockState]> = [
   ["spotify", "https://open.spotify.com/", "Spotify", "closed"],
   ["linear", "https://linear.app/inbox", "Linear", "running"],
   ["cal", "https://calendar.google.com/", "Calendar", "sleeping"],
-  ["zhihu", "https://www.zhihu.com/", "知乎", "closed"],
+  getLocale() === "zh"
+    ? ["zhihu", "https://www.zhihu.com/", "知乎", "closed"]
+    : ["hn", "https://news.ycombinator.com/", "Hacker News", "closed"],
 ];
 for (const [id, url, name, state] of mockSeed.slice(0, Math.max(0, Math.min(12, previewCount)))) {
   mockSnapshot.favorites.push(mockFavorite(id, url, name, state, id === "bili"));
@@ -72,6 +77,7 @@ export const previewBrands: Record<string, string> = {
   "bilibili.com": "#00a1d6", "youtube.com": "#ff0033", "google.com": "#ea4335", "notion.so": "#787774",
   "chatgpt.com": "#10a37f", "github.com": "#8250df", "figma.com": "#a259ff", "x.com": "#536471",
   "spotify.com": "#1db954", "linear.app": "#5e6ad2", "zhihu.com": "#1772f6", "sspai.com": "#d71a1b",
+  "reddit.com": "#ff4500", "ycombinator.com": "#ff6600", "theverge.com": "#5200ff",
 };
 
 function mockContext(): CurrentTabContext {
@@ -82,15 +88,16 @@ function mockContext(): CurrentTabContext {
       kind: "favorite",
       favoriteId: active.id,
       atHome: kind === "favorite",
-      url: kind === "deep" ? "https://www.bilibili.com/video/BV1GJ411x7h7" : active.homeUrl,
+      url: kind === "deep" ? new URL(getLocale() === "zh" ? "video/BV1GJ411x7h7" : "r/chrome/", active.homeUrl).href : active.homeUrl,
       title: active.appName,
     };
   }
-  if (kind === "unsupported") return { kind: "unsupported", url: "chrome://settings/", title: "设置" };
+  if (kind === "unsupported") return { kind: "unsupported", url: "chrome://settings/", title: getLocale() === "zh" ? "设置" : "Settings" };
   return {
     kind: mockSnapshot.favorites.length >= 12 ? "full" : "addable",
-    url: "https://sspai.com/",
-    title: "少数派 - 高效工作，品质生活",
+    ...(getLocale() === "zh"
+      ? { url: "https://sspai.com/", title: "少数派 - 高效工作，品质生活" }
+      : { url: "https://www.theverge.com/", title: "The Verge" }),
   };
 }
 

@@ -1,0 +1,139 @@
+<!doctype html>
+<!-- Store artwork composer. Run `npm run dev`, then `node store/render.mjs`. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --bg1: #f3f6fd; --bg2: #dfe7fb; --ink: #141a2b; --sub: #4b556b;
+  --frame: #e3e8f2; --tab: #ffffff; --bar: #ffffff; --omni: #edf1f8; --page: #f7f8fb; --skel: #e8ebf2; --icon: #5f6672;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg1: #171a22; --bg2: #0f1b3a; --ink: #f1f3f8; --sub: #a9b1c4;
+    --frame: #202124; --tab: #35363a; --bar: #35363a; --omni: #282a2d; --page: #1f2023; --skel: #2c2e33; --icon: #c4c7c5;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", system-ui, sans-serif; color: var(--ink); background: transparent; }
+.shot { width: 1280px; height: 800px; position: relative; overflow: hidden; background: radial-gradient(120% 90% at 85% 10%, var(--bg2), var(--bg1) 60%); }
+.copy { position: absolute; left: 80px; top: 0; bottom: 0; width: 430px; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+h1 { margin: 0; font-size: 52px; line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; }
+:lang(zh) h1 { letter-spacing: 0; line-height: 1.2; }
+.copy p { margin: 0; font-size: 21px; line-height: 1.5; color: var(--sub); }
+.window { position: absolute; left: 556px; top: 56px; width: 680px; height: 744px; border-radius: 14px; background: var(--page); box-shadow: 0 30px 80px rgba(20,32,70,.22), 0 0 0 1px rgba(20,32,70,.08); overflow: hidden; }
+.strip { height: 44px; background: var(--frame); display: flex; align-items: flex-end; padding: 0 10px; gap: 2px; }
+.strip .dots { display: flex; gap: 8px; align-self: center; margin-right: 12px; }
+.strip .dots i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .strip .dots i:nth-child(2) { background: #febc2e; } .strip .dots i:nth-child(3) { background: #28c840; }
+.tab { height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px 10px 0 0; font-size: 13px; color: var(--icon); }
+.tab.pin { width: 44px; } .tab.wide { width: 170px; justify-content: flex-start; padding: 0 12px; }
+.tab.on { background: var(--tab); color: var(--ink); }
+.tab img { width: 16px; height: 16px; }
+.bar { height: 46px; background: var(--bar); display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid rgba(127,127,127,.15); }
+.omni { flex: 1; height: 32px; border-radius: 16px; background: var(--omni); display: flex; align-items: center; padding: 0 14px; font-size: 13.5px; color: var(--sub); }
+.bar svg { flex: none; }
+.bow { width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: rgba(63,111,242,.16); }
+.skel { padding: 160px 36px; display: grid; gap: 14px; }
+.skel b { display: block; height: 14px; border-radius: 7px; background: var(--skel); }
+.popup { position: absolute; top: 150px; right: 88px; border: 0; width: 360px; transform: scale(1.3); transform-origin: top right; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25), 0 0 0 1px rgba(127,127,127,.18); background: transparent; }
+
+/* promo tiles */
+.tile { position: relative; overflow: hidden; color: #fff; background: radial-gradient(120% 120% at 20% 0%, #5b8dff, #2f5fe8 70%); display: flex; align-items: center; }
+.small { width: 440px; height: 280px; padding: 0 36px; gap: 22px; }
+.small .name { font-size: 54px; font-weight: 800; letter-spacing: -0.03em; }
+.small .tag { font-size: 16px; white-space: nowrap; line-height: 1.4; opacity: .9; margin-top: 4px; }
+.marquee { width: 1400px; height: 560px; padding: 0 120px; gap: 64px; }
+.marquee .name { font-size: 110px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.marquee .tag { font-size: 32px; line-height: 1.4; opacity: .92; margin-top: 18px; max-width: 760px; }
+.tile > svg { flex: none; filter: drop-shadow(0 18px 36px rgba(10,30,110,.35)); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <mask id="gap" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><rect width="128" height="128" fill="#fff"/><rect x="39" y="26" width="50" height="62" rx="17" stroke="#000" stroke-width="10"/></mask>
+    <symbol id="mark" viewBox="0 0 128 128"><g mask="url(#gap)" fill="var(--wing)" opacity="var(--wo, 1)"><rect x="41" y="30" width="46" height="58" rx="16" transform="rotate(-30 64 112)"/><rect x="41" y="30" width="46" height="58" rx="16" transform="rotate(30 64 112)"/></g><rect x="39" y="26" width="50" height="62" rx="17" fill="var(--core)"/></symbol>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8dff"/><stop offset="1" stop-color="#2f5fe8"/></linearGradient>
+    <symbol id="app" viewBox="0 0 128 128"><rect x="8" y="8" width="112" height="112" rx="30" fill="url(#fill)"/><svg x="20" y="20" width="88" height="88" style="--wing:#fff;--wo:.62;--core:#fff"><use href="#mark"/></svg></symbol>
+  </defs>
+</svg>
+<div id="root"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const lang = q.get("lang") ?? "en";
+const kind = q.get("kind") ?? "shot";
+document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+const blue = "--wing:#7a9bf9;--core:#3f6ff2";
+const appIcon = (s) => `<svg width="${s}" height="${s}"><use href="#app"/></svg>`;
+
+const copy = {
+  en: {
+    tagline: "Your everyday sites, as apps.",
+    tagSub: "Built on Chrome's own pinned tabs.",
+    shots: [
+      { popup: "ctx=favorite&n=6", active: "reddit.com", url: "reddit.com", h: "Your everyday sites, as apps.", p: "Bow turns Chrome's own pinned tabs into apps that come back after you close them or restart Chrome." },
+      { popup: "n=12&ctx=favorite", active: "reddit.com", url: "reddit.com", h: "Type to filter.<br>Press 1–9 to jump.", p: "Up to twelve apps in one grid, each showing what it's doing: playing, asleep, loading or not open." },
+      { popup: "ctx=addable&n=8", active: null, url: "theverge.com", tabTitle: "The Verge", h: "Add the site you're on in one click.", p: "One app per site, named the way the site names itself. Drag tiles to reorder." },
+      { popup: "ctx=deep", active: "reddit.com", url: "reddit.com/r/chrome/", h: "Wandered off?<br>Go back home.", p: "Each app remembers its home page. Jump back to it, or make the page you're on the new home." },
+    ],
+  },
+  zh: {
+    tagline: "把常用网站变成 App",
+    tagSub: "基于 Chrome 原生固定标签",
+    shots: [
+      { popup: "ctx=favorite&n=6", active: "bilibili.com", url: "bilibili.com", h: "把常用网站<br>变成 App", p: "Bow 用 Chrome 原生的固定标签做常驻入口，关掉、重启 Chrome 都会回来。" },
+      { popup: "n=12&ctx=favorite", active: "bilibili.com", url: "bilibili.com", h: "输入即筛选<br>按 1–9 直接切换", p: "一个网格最多放 12 个 App，每个都显示当前状态：播放中、休眠、加载中、未打开。" },
+      { popup: "ctx=addable&n=8", active: null, url: "sspai.com", tabTitle: "少数派", h: "当前网站<br>一键加入", p: "每个网站一个 App，名字取自网站自己声明的名称。拖动方块即可排序。" },
+      { popup: "ctx=deep", active: "bilibili.com", url: "bilibili.com/video/BV1GJ411x7h7", h: "走远了？<br>一键回主页", p: "每个 App 记得自己的主页。可以一键回去，也可以把当前页面设为新主页。" },
+    ],
+  },
+}[lang];
+
+const pinned = lang === "zh"
+  ? ["bilibili.com", "youtube.com", "mail.google.com", "notion.so", "chatgpt.com", "github.com"]
+  : ["reddit.com", "youtube.com", "mail.google.com", "notion.so", "chatgpt.com", "github.com"];
+const fav = (d) => `https://www.google.com/s2/favicons?domain=${d}&sz=64`;
+const root = document.getElementById("root");
+
+if (kind === "shot") {
+  const s = copy.shots[Number(q.get("shot") ?? 1) - 1];
+  const tabs = pinned.map((d) => `<div class="tab pin ${d === s.active ? "on" : ""}"><img src="${fav(d)}"></div>`).join("")
+    + (s.tabTitle ? `<div class="tab wide on"><img src="${fav(s.url)}">${s.tabTitle}</div>` : "");
+  root.innerHTML = `<div class="shot">
+    <div class="copy"><div class="brand">${appIcon(40)}Bow</div><h1>${s.h}</h1><p>${s.p}</p></div>
+    <div class="window">
+      <div class="strip"><div class="dots"><i></i><i></i><i></i></div>${tabs}</div>
+      <div class="bar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--icon)" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--icon)" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>
+        <div class="omni">${s.url}</div>
+        <div class="bow"><svg width="20" height="20" style="${blue}"><use href="#mark"/></svg></div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--icon)"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+      </div>
+      <div class="skel"><b style="width:70%"></b><b></b><b style="width:85%"></b><b style="width:60%"></b></div>
+    </div>
+    <iframe class="popup" src="/popup.html?lang=${lang}&${s.popup}"></iframe>
+  </div>`;
+  const frame = root.querySelector("iframe");
+  frame.addEventListener("load", () => {
+    const doc = frame.contentDocument;
+    doc.head.insertAdjacentHTML("beforeend", "<style>*{caret-color:transparent!important}</style>");
+    const fit = () => { frame.style.height = frame.contentDocument.documentElement.scrollHeight + "px"; };
+    fit(); setTimeout(fit, 600); setTimeout(() => { fit(); document.body.dataset.ready = "1"; }, 1500);
+  });
+} else if (kind === "small") {
+  root.innerHTML = `<div class="tile small">${appIcon(112)}<div><div class="name">Bow</div><div class="tag">${copy.tagline}</div></div></div>`;
+  document.body.dataset.ready = "1";
+} else if (kind === "marquee") {
+  root.innerHTML = `<div class="tile marquee">${appIcon(260)}<div><div class="name">Bow</div><div class="tag">${copy.tagline}<br>${copy.tagSub}</div></div></div>`;
+  document.body.dataset.ready = "1";
+} else if (kind === "icon") {
+  // Store icon: 96 px artwork inside 16 px of transparent padding.
+  root.innerHTML = `<div style="width:128px;height:128px;padding:16px"><svg width="96" height="96" viewBox="8 8 112 112"><use href="#app" width="128" height="128"/></svg></div>`;
+  document.body.dataset.ready = "1";
+}
+</script>
+</body>
+</html>

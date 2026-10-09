@@ -1,0 +1,34 @@
+Your everyday sites, as apps.
+
+Bow turns Chrome's own pinned tabs into apps. Add a site once and it stays at the start of your tab strip (or Vertical Tabs), comes back after you close it or restart Chrome, and clicking it always takes you to the same tab.
+
+There's no sidebar to make room for and nothing injected into the pages you read. Bow only adds the layer Chrome is missing: it remembers which tabs are apps, keeps exactly one of each, puts them back when they go missing, and decides where links should open.
+
+WHAT YOU GET
+
+• One tab per app. Each app has exactly one tab across all your windows. Clicking switches to it, even in another window; a sleeping one picks up where you left off.
+• Apps that don't go away. Close one with Cmd/Ctrl+W and it comes back in the background, asleep, in the same window. After a restart, Bow reuses the tabs Chrome restored instead of adding blank ones.
+• App-home mode. Links to other sites open in a normal tab, so the app stays put. On YouTube, in-site videos open in new tabs too, so the home feed stays the home feed. Turn it on for any site.
+• A popup that's quick to use. Start typing to filter, press 1–9 to open an app, use the arrow keys and Enter, or drag tiles to reorder. Each tile shows what the app is doing: current, running, playing, asleep, loading or not open.
+• Add the site you're on in one click. The card at the bottom follows the current page: add it, go back to the app's home page, or make this page the new home.
+• Automatic names. Bow uses the name a site declares for itself, or cleans up the page title.
+• Light and dark mode, keyboard shortcuts, screen readers and reduced motion are all supported.
+• English and Chinese, following Chrome's language.
+
+HOW TO USE
+
+1. Pin Bow to the toolbar. Cmd/Ctrl+Shift+Y opens it.
+2. On a site you use every day, click Add at the bottom of the popup, or right-click the page and choose "Add to Favorites (pin tab)".
+3. Click an app, or press its number, to jump to it.
+
+Up to 12 apps, one per site.
+
+NOTHING TO UNDO
+
+Uninstall Bow and you're left with ordinary pinned tabs. Nothing is lost.
+
+PRIVACY
+
+Bow makes no network requests, has no accounts, analytics or tracking, and keeps all its data in your browser. Source code: https://github.com/IJPP/bow
+
+Bow is an independent open-source project and is not affiliated with Google.

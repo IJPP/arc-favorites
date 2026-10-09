@@ -97,6 +97,7 @@ These apply only inside a Favorite's own tab:
 - **What Bow doesn't do:** read page content, make network requests, or use accounts, analytics or telemetry.
 - **Where data lives:** everything stays in `chrome.storage` on your device. The diagnostic log is local too; you copy it from the popup only when you need it.
 - **If site access is withdrawn:** if you restrict site access in the extension's details, link rules stop working. The popup tells you, and **Allow** turns them back on.
+- **Privacy policy:** [PRIVACY.md](PRIVACY.md).
 
 ## Known limitations
 
