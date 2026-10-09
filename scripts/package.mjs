@@ -19,4 +19,7 @@ async function addDirectory(directory) {
 
 await addDirectory(dist);
 const archive = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+const { version } = JSON.parse(await readFile(resolve(dist, "manifest.json"), "utf8"));
 await writeFile(resolve("bow.zip"), archive);
+// Ready-to-upload copy for the Chrome Web Store (git-ignored like all zips).
+await writeFile(resolve("store", `bow-v${version}.zip`), archive);

@@ -26,7 +26,7 @@
 ## 上架步骤
 
 1. **注册开发者账号**：https://chrome.google.com/webstore/devconsole ，一次性 5 美元注册费，账号需开启两步验证。
-2. **上传包**：`npm run package` 生成的 `bow.zip`（manifest 在根目录），点 “New item” 上传。
+2. **上传包**：点 “New item”，上传本目录里的 `bow-v版本号.zip`（`npm run package` 生成，manifest 在根目录，已去掉 source map；zip 不进 git，只在本地）。
 3. **Store listing**
    - Description：粘贴 `listing-en.txt`；再加中文（简体）语言，粘贴 `listing-zh-CN.txt`。名称和简介会自动读取 `_locales`。
    - Category：Productivity → Tools。Language：English（并添加 Chinese (Simplified)）。
@@ -38,6 +38,6 @@
 
 ## 注意
 
-- **扩展 ID 会变**：商店会分配新的 ID，和 GitHub 版（`doabdlhpdalmojamkdilieepnlfpgpel`）不同，两边的数据不互通。迁移方法：先移除 GitHub 版（固定标签会留下），再装商店版，它会自动把现有固定标签认成 App；自定义的名称和主页需要重新设置。
+- **扩展 ID 会变**：商店会分配新的 ID，和你本地以“加载已解压的扩展程序”装的 GitHub 版不同，两边的数据不互通。迁移方法：先移除 GitHub 版（固定标签会留下），再装商店版，它会自动把现有固定标签认成 App；自定义的名称和主页需要重新设置。
 - **商店文案里不要提 Arc**，避免商标和“关键词堆砌”问题；README 里的说明不受影响。
-- 以后发版：改 `package.json` 和 `public/manifest.json` 的版本号 → `npm run package` → 在后台 Package 标签上传新的 `bow.zip`。
+- 以后发版：改 `package.json` 和 `public/manifest.json` 的版本号 → `npm run package` → 在后台 Package 标签上传本目录里新的 `bow-v版本号.zip`。GitHub Release 只放同一个 zip，不再打 CRX。
